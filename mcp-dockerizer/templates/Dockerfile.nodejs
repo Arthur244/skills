@@ -1,0 +1,52 @@
+# syntax=docker/dockerfile:1
+
+# 阶段 1：构建阶段 - 用于安装依赖和构建
+FROM node:20-alpine AS builder
+
+# 设置工作目录
+WORKDIR /app
+
+# 使用缓存挂载安装依赖
+# --mount=type=cache,target=/root/.npm: 缓存 npm 下载的包，加速后续构建
+# --mount=type=bind,source=package.json,target=package.json: 绑定 package.json
+# --mount=type=bind,source=package-lock.json,target=package-lock.json: 绑定 lock 文件
+# npm ci: 根据 package-lock.json 精确安装，确保可重复构建
+RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=package-lock.json,target=package-lock.json \
+    npm ci --only=production
+
+# 复制源代码
+COPY . .
+
+# 如果有构建步骤，在这里执行
+# RUN npm run build
+
+# 阶段 2：运行阶段 - 精简的生产镜像
+FROM node:20-alpine
+
+# 设置工作目录
+WORKDIR /app
+
+# 从构建阶段复制必要文件
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
+# 如果有构建输出目录：
+# COPY --from=builder /app/dist ./dist
+
+# 创建非 root 用户（安全最佳实践）
+RUN addgroup -g 1001 -S mcpuser && \
+    adduser -S mcpuser -u 1001 -G mcpuser && \
+    chown -R mcpuser:mcpuser /app
+
+# 切换到非 root 用户
+USER mcpuser
+
+# 设置环境变量
+# NODE_ENV=production: 生产环境模式
+ENV NODE_ENV=production
+
+# 设置入口点
+# 注意：根据实际项目调整入口文件路径
+ENTRYPOINT ["node", "src/index.js"]

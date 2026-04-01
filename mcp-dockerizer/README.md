@@ -35,11 +35,11 @@
 
 ### Dockerfile 模板
 
-| 模板 | 适用场景 | 基础镜像 |
-|------|----------|----------|
-| Python + uv | 现代 Python MCP 服务 | python:3.11-slim |
-| Python (pip) | 传统 Python MCP 服务 | python:3.11-slim |
-| Node.js | Node.js MCP 服务 | node:20-alpine |
+| 模板 | 适用场景 | 基础镜像 | 特性 |
+|------|----------|----------|------|
+| Python + uv | 现代 Python MCP 服务 | python:3.11-slim | BuildKit 缓存挂载、多阶段构建 |
+| Python (pip) | 传统 Python MCP 服务 | python:3.11-slim | BuildKit 缓存挂载、多阶段构建 |
+| Node.js | Node.js MCP 服务 | node:20-alpine | BuildKit 缓存挂载、多阶段构建 |
 
 ### 其他模板
 
@@ -58,6 +58,26 @@
 - 不包含构建工具和中间文件
 - 更安全（更小的攻击面）
 - 更快的部署速度
+
+## BuildKit 缓存挂载优势
+
+所有 Dockerfile 模板均使用 BuildKit 缓存挂载功能，进一步提升构建效率：
+
+**优势**：
+- 构建缓存持久化，下载的包会被缓存
+- 减少网络传输，相同依赖不需要重复下载
+- 更快的 CI/CD，在持续集成环境中显著提升构建速度
+
+**各模板缓存策略**：
+- **Python + uv**: 缓存 `/root/.cache/uv`
+- **Python (pip)**: 缓存 `/root/.cache/pip`
+- **Node.js**: 缓存 `/root/.npm`
+
+**使用方法**：
+```bash
+# 启用 BuildKit 构建
+DOCKER_BUILDKIT=1 docker build -t mcp-service:latest .
+```
 
 ## 实际案例
 

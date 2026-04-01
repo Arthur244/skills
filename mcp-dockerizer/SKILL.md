@@ -87,28 +87,40 @@ grep -r "open(\|Path(" --include="*.py"
 #### Python + uv Dockerfile 模板（推荐用于现代 Python MCP）
 
 ```dockerfile
-# 阶段 1：构建阶段
+# syntax=docker/dockerfile:1
+
+# 阶段 1：构建阶段 - 用于安装依赖
 FROM python:3.11-slim AS builder
 
+# 设置工作目录
 WORKDIR /app
 
-# 安装 uv
+# 安装 uv 包管理器
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # 设置环境变量
+# UV_COMPILE_BYTECODE=1: 编译 Python 字节码，提升启动速度
+# UV_LINK_MODE=copy: 复制文件而非硬链接，避免跨文件系统问题
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
-# 复制依赖文件
-COPY pyproject.toml ./
+# 使用缓存挂载安装依赖
+# --mount=type=cache,target=/root/.cache/uv: 缓存 uv 下载的包，加速后续构建
+# --mount=type=bind,source=uv.lock,target=uv.lock: 绑定锁文件
+# --mount=type=bind,source=pyproject.toml,target=pyproject.toml: 绑定项目配置文件
+# --frozen: 使用锁文件，确保可重复构建
+# --no-install-project: 只安装依赖，不安装项目本身
+# --no-dev: 不安装开发依赖
+# --no-editable: 以非可编辑模式安装
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev --no-editable
 
-# 安装依赖到 .venv 目录
-RUN uv venv && \
-    uv pip install -e .
-
-# 阶段 2：运行阶段
+# 阶段 2：运行阶段 - 精简的生产镜像
 FROM python:3.11-slim
 
+# 设置工作目录
 WORKDIR /app
 
 # 从构建阶段复制虚拟环境
@@ -121,37 +133,49 @@ COPY . .
 RUN useradd -m -u 1001 mcpuser && \
     chown -R mcpuser:mcpuser /app
 
+# 切换到非 root 用户
 USER mcpuser
 
-# 使用虚拟环境中的 Python
+# 设置环境变量
+# PATH: 将虚拟环境添加到 PATH
+# PYTHONUNBUFFERED=1: 禁用输出缓冲，便于查看日志
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
-# 入口点
+# 设置入口点
+# 注意：根据实际项目调整模块名称
 ENTRYPOINT ["python", "-m", "mcp_server_name"]
 ```
 
 #### Python (pip) Dockerfile 模板
 
 ```dockerfile
-# 阶段 1：构建阶段
+# syntax=docker/dockerfile:1
+
+# 阶段 1：构建阶段 - 用于安装依赖
 FROM python:3.11-slim AS builder
 
+# 设置工作目录
 WORKDIR /app
 
-# 安装系统依赖
+# 安装系统依赖（如需要编译的 Python 包）
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# 创建虚拟环境并安装依赖
-COPY requirements.txt ./
-RUN python -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+# 使用缓存挂载创建虚拟环境并安装依赖
+# --mount=type=cache,target=/root/.cache/pip: 缓存 pip 下载的包，加速后续构建
+# --mount=type=bind,source=requirements.txt,target=requirements.txt: 绑定依赖文件
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=bind,source=requirements.txt,target=requirements.txt \
+    python -m venv /opt/venv && \
+    /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install -r requirements.txt
 
-# 阶段 2：运行阶段
+# 阶段 2：运行阶段 - 精简的生产镜像
 FROM python:3.11-slim
 
+# 设置工作目录
 WORKDIR /app
 
 # 从构建阶段复制虚拟环境
@@ -164,30 +188,40 @@ COPY . .
 RUN useradd -m -u 1001 mcpuser && \
     chown -R mcpuser:mcpuser /app
 
+# 切换到非 root 用户
 USER mcpuser
 
-# 使用虚拟环境
+# 设置环境变量
+# PATH: 将虚拟环境添加到 PATH
+# PYTHONUNBUFFERED=1: 禁用输出缓冲，便于查看日志
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
-# 入口点
+# 设置入口点
+# 注意：根据实际项目调整模块名称或脚本路径
 ENTRYPOINT ["python", "-m", "mcp_server"]
-# 或: ENTRYPOINT ["python", "main.py"]
 ```
 
 #### Node.js Dockerfile 模板
 
 ```dockerfile
-# 阶段 1：构建阶段
+# syntax=docker/dockerfile:1
+
+# 阶段 1：构建阶段 - 用于安装依赖和构建
 FROM node:20-alpine AS builder
 
+# 设置工作目录
 WORKDIR /app
 
-# 复制 package 文件
-COPY package*.json ./
-
-# 安装所有依赖（包括 devDependencies，用于构建）
-RUN npm ci
+# 使用缓存挂载安装依赖
+# --mount=type=cache,target=/root/.npm: 缓存 npm 下载的包，加速后续构建
+# --mount=type=bind,source=package.json,target=package.json: 绑定 package.json
+# --mount=type=bind,source=package-lock.json,target=package-lock.json: 绑定 lock 文件
+# npm ci: 根据 package-lock.json 精确安装，确保可重复构建
+RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=package-lock.json,target=package-lock.json \
+    npm ci --only=production
 
 # 复制源代码
 COPY . .
@@ -195,9 +229,10 @@ COPY . .
 # 如果有构建步骤，在这里执行
 # RUN npm run build
 
-# 阶段 2：运行阶段
+# 阶段 2：运行阶段 - 精简的生产镜像
 FROM node:20-alpine
 
+# 设置工作目录
 WORKDIR /app
 
 # 从构建阶段复制必要文件
@@ -212,14 +247,16 @@ RUN addgroup -g 1001 -S mcpuser && \
     adduser -S mcpuser -u 1001 -G mcpuser && \
     chown -R mcpuser:mcpuser /app
 
+# 切换到非 root 用户
 USER mcpuser
 
-# 环境变量（运行时可覆盖）
+# 设置环境变量
+# NODE_ENV=production: 生产环境模式
 ENV NODE_ENV=production
 
-# 入口点
+# 设置入口点
+# 注意：根据实际项目调整入口文件路径
 ENTRYPOINT ["node", "src/index.js"]
-# 如果有构建输出：ENTRYPOINT ["node", "dist/index.js"]
 ```
 
 #### docker-compose.yml 模板
