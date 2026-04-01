@@ -11,6 +11,7 @@ AI 辅助工具技能集合，用于扩展 AI 编程助手的能力。
 | Skill | 描述 |
 |-------|------|
 | [mcp-dockerizer](./mcp-dockerizer) | 将本地 MCP 服务转换为 Docker 部署 |
+| [skill-vetter](./skill-vetter) | 安全优先的 AI 代理技能审查工具 |
 
 ### mcp-dockerizer
 
@@ -21,6 +22,16 @@ AI 辅助工具技能集合，用于扩展 AI 编程助手的能力。
 - 采用 Multi-stage Build，镜像体积减少 50%-80%
 - 提供完整的 Dockerfile、docker-compose.yml 模板
 - 包含 MCP 客户端配置更新指南
+
+### skill-vetter
+
+安全优先的 AI 代理技能审查工具，在安装任何 skill 之前进行安全检查。
+
+**核心特性**：
+- 来源检查 - 评估 skill 的来源可信度
+- 代码审查 - 识别危险信号和可疑模式
+- 权限评估 - 分析 skill 所需的权限范围
+- 风险分级 - 对 skill 进行风险等级分类
 
 ## Skill 结构
 
@@ -51,6 +62,8 @@ description: "Skill 描述，用于 AI 判断调用时机"
 
 - 用户说："帮我把这个 MCP 服务 dockerize" → 调用 `mcp-dockerizer`
 - 用户说："我想在 Docker 中部署这个 MCP" → 调用 `mcp-dockerizer`
+- 用户说："帮我审查这个 skill 是否安全" → 调用 `skill-vetter`
+- 用户说："检查这个 skill 有没有安全问题" → 调用 `skill-vetter`
 
 ## 相关链接
 
