@@ -5,6 +5,47 @@ description: "将本地 MCP 服务转换为 Docker 部署。当用户想要 Dock
 
 # MCP Dockerizer
 
+## ⚠️ 前置检查：模板文件获取
+
+**在执行此 skill 任何步骤之前，必须先完成以下检查：**
+
+### 步骤 0：检查并获取模板文件
+
+1. **检查模板文件夹是否存在**：
+   - 检查 `templates/` 文件夹是否存在
+   - 检查以下文件是否存在：
+     - `templates/Dockerfile.python-uv`
+     - `templates/Dockerfile.python-pip`
+     - `templates/Dockerfile.nodejs`
+
+2. **如果模板文件不存在，必须执行以下操作之一**：
+
+   **方案 A（推荐）：下载完整 skill**
+   ```
+   请从以下地址下载完整的 skill（包含 templates 文件夹）：
+   https://github.com/Arthur244/skills/tree/main/mcp-dockerizer
+   ```
+
+   **方案 B：手动创建模板文件**
+   
+   如果无法下载，请根据本文件中「附录：模板文件内容」部分的内容，手动创建以下文件：
+   - `templates/Dockerfile.python-uv`
+   - `templates/Dockerfile.python-pip`
+   - `templates/Dockerfile.nodejs`
+
+3. **验证模板文件**：
+   确认所有模板文件都已就绪后，方可继续执行后续步骤。
+
+### 模板文件检查清单
+
+在继续之前，请确认：
+- [ ] `templates/` 文件夹已存在
+- [ ] `templates/Dockerfile.python-uv` 文件已存在
+- [ ] `templates/Dockerfile.python-pip` 文件已存在
+- [ ] `templates/Dockerfile.nodejs` 文件已存在
+
+**只有当以上所有文件都存在时，才能继续执行后续步骤。**
+
 本 skill 引导 AI 工具将现有本地部署的 MCP（Model Context Protocol）服务转换为 Docker 部署，同时保持功能完全一致。
 
 ## 调用时机
@@ -644,4 +685,185 @@ FROM python:3.11-slim AS builder
 WORKDIR /app
 # ...（完整复制模板，仅修改 ENTRYPOINT）
 ENTRYPOINT ["python", "-m", "my_actual_module"]
+```
+
+---
+
+## 附录：模板文件内容
+
+以下为模板文件的完整内容。如果 `templates/` 文件夹不存在，请根据以下内容手动创建对应的模板文件。
+
+### templates/Dockerfile.python-uv
+
+```dockerfile
+# syntax=docker/dockerfile:1
+
+# 阶段 1：构建阶段 - 用于安装依赖
+FROM python:3.11-slim AS builder
+
+# 设置工作目录
+WORKDIR /app
+
+# 安装 uv 包管理器
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# 设置环境变量
+# UV_COMPILE_BYTECODE=1: 编译 Python 字节码，提升启动速度
+# UV_LINK_MODE=copy: 复制文件而非硬链接，避免跨文件系统问题
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+# 使用缓存挂载安装依赖
+# --mount=type=cache,target=/root/.cache/uv: 缓存 uv 下载的包，加速后续构建
+# --mount=type=bind,source=uv.lock,target=uv.lock: 绑定锁文件
+# --mount=type=bind,source=pyproject.toml,target=pyproject.toml: 绑定项目配置文件
+# --frozen: 使用锁文件，确保可重复构建
+# --no-install-project: 只安装依赖，不安装项目本身
+# --no-dev: 不安装开发依赖
+# --no-editable: 以非可编辑模式安装
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev --no-editable
+
+# 阶段 2：运行阶段 - 精简的生产镜像
+FROM python:3.11-slim
+
+# 设置工作目录
+WORKDIR /app
+
+# 从构建阶段复制虚拟环境
+COPY --from=builder /app/.venv /app/.venv
+
+# 复制源代码
+COPY . .
+
+# 创建非 root 用户（安全最佳实践）
+RUN useradd -m -u 1001 mcpuser && \
+    chown -R mcpuser:mcpuser /app
+
+# 切换到非 root 用户
+USER mcpuser
+
+# 设置环境变量
+# PATH: 将虚拟环境添加到 PATH
+# PYTHONUNBUFFERED=1: 禁用输出缓冲，便于查看日志
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
+
+# 设置入口点
+# 注意：根据实际项目调整模块名称
+ENTRYPOINT ["python", "-m", "mcp_server_name"]
+```
+
+### templates/Dockerfile.python-pip
+
+```dockerfile
+# syntax=docker/dockerfile:1
+
+# 阶段 1：构建阶段 - 用于安装依赖
+FROM python:3.11-slim AS builder
+
+# 设置工作目录
+WORKDIR /app
+
+# 安装系统依赖（如需要编译的 Python 包）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# 使用缓存挂载创建虚拟环境并安装依赖
+# --mount=type=cache,target=/root/.cache/pip: 缓存 pip 下载的包，加速后续构建
+# --mount=type=bind,source=requirements.txt,target=requirements.txt: 绑定依赖文件
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=bind,source=requirements.txt,target=requirements.txt \
+    python -m venv /opt/venv && \
+    /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install -r requirements.txt
+
+# 阶段 2：运行阶段 - 精简的生产镜像
+FROM python:3.11-slim
+
+# 设置工作目录
+WORKDIR /app
+
+# 从构建阶段复制虚拟环境
+COPY --from=builder /opt/venv /opt/venv
+
+# 复制源代码
+COPY . .
+
+# 创建非 root 用户（安全最佳实践）
+RUN useradd -m -u 1001 mcpuser && \
+    chown -R mcpuser:mcpuser /app
+
+# 切换到非 root 用户
+USER mcpuser
+
+# 设置环境变量
+# PATH: 将虚拟环境添加到 PATH
+# PYTHONUNBUFFERED=1: 禁用输出缓冲，便于查看日志
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
+
+# 设置入口点
+# 注意：根据实际项目调整模块名称或脚本路径
+ENTRYPOINT ["python", "-m", "mcp_server"]
+```
+
+### templates/Dockerfile.nodejs
+
+```dockerfile
+# syntax=docker/dockerfile:1
+
+# 阶段 1：构建阶段 - 用于安装依赖和构建
+FROM node:20-alpine AS builder
+
+# 设置工作目录
+WORKDIR /app
+
+# 使用缓存挂载安装依赖
+# --mount=type=cache,target=/root/.npm: 缓存 npm 下载的包，加速后续构建
+# --mount=type=bind,source=package.json,target=package.json: 绑定 package.json
+# --mount=type=bind,source=package-lock.json,target=package-lock.json: 绑定 lock 文件
+# npm ci: 根据 package-lock.json 精确安装，确保可重复构建
+RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=package-lock.json,target=package-lock.json \
+    npm ci --only=production
+
+# 复制源代码
+COPY . .
+
+# 如果有构建步骤，在这里执行
+# RUN npm run build
+
+# 阶段 2：运行阶段 - 精简的生产镜像
+FROM node:20-alpine
+
+# 设置工作目录
+WORKDIR /app
+
+# 从构建阶段复制必要文件
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
+# 如果有构建输出目录：
+# COPY --from=builder /app/dist ./dist
+
+# 创建非 root 用户（安全最佳实践）
+RUN addgroup -g 1001 -S mcpuser && \
+    adduser -S mcpuser -u 1001 -G mcpuser && \
+    chown -R mcpuser:mcpuser /app
+
+# 切换到非 root 用户
+USER mcpuser
+
+# 设置环境变量
+# NODE_ENV=production: 生产环境模式
+ENV NODE_ENV=production
+
+# 设置入口点
+# 注意：根据实际项目调整入口文件路径
+ENTRYPOINT ["node", "src/index.js"]
 ```
