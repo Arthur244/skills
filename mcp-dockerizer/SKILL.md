@@ -135,9 +135,7 @@ grep -r "open(\|Path(" --include="*.py"
 3. **模板占位符替换规则**：
    | 占位符 | 说明 | 示例替换 |
    |--------|------|----------|
-   | `mcp_server_name` | Python 模块入口名称 | `mcp_server_qweather` |
-   | `mcp_server` | Python 模块入口名称 | `my_mcp_service` |
-   | `src/index.js` | Node.js 入口文件路径 | `dist/main.js` |
+   | `mcp-server-name` | CLI 入口点名称（Python 定义在 pyproject.toml 的 [project.scripts]，Node.js 定义在 package.json 的 bin 字段） | `my-mcp-server` |
 
 4. **生成流程**：
    ```
@@ -186,18 +184,18 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
-# 使用缓存挂载安装依赖
+# 使用缓存挂载安装依赖和项目
 # --mount=type=cache,target=/root/.cache/uv: 缓存 uv 下载的包，加速后续构建
 # --mount=type=bind,source=uv.lock,target=uv.lock: 绑定锁文件
 # --mount=type=bind,source=pyproject.toml,target=pyproject.toml: 绑定项目配置文件
 # --frozen: 使用锁文件，确保可重复构建
-# --no-install-project: 只安装依赖，不安装项目本身
 # --no-dev: 不安装开发依赖
 # --no-editable: 以非可编辑模式安装
+# 注意：不使用 --no-install-project，以便安装项目入口点脚本到 .venv/bin/
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev --no-editable
+    uv sync --frozen --no-dev --no-editable
 
 # 阶段 2：运行阶段 - 精简的生产镜像
 FROM python:3.11-slim
@@ -225,8 +223,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
 # 设置入口点
-# 注意：根据实际项目调整模块名称
-ENTRYPOINT ["python", "-m", "mcp_server_name"]
+# 注意：根据实际项目的 pyproject.toml 中 [project.scripts] 定义的入口点名称调整
+# 例如：my-mcp-server 等
+ENTRYPOINT ["mcp-server-name"]
 ```
 
 #### Python (pip) Dockerfile 模板
@@ -280,8 +279,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
 # 设置入口点
-# 注意：根据实际项目调整模块名称或脚本路径
-ENTRYPOINT ["python", "-m", "mcp_server"]
+# 注意：根据实际项目的 setup.py 或 pyproject.toml 中定义的入口点名称调整
+# 例如：my-mcp-server 等
+ENTRYPOINT ["mcp-server-name"]
 ```
 
 #### Node.js Dockerfile 模板
@@ -334,11 +334,14 @@ USER mcpuser
 
 # 设置环境变量
 # NODE_ENV=production: 生产环境模式
-ENV NODE_ENV=production
+# PATH: 将 node_modules/.bin 添加到 PATH，支持直接执行 package.json 中定义的 bin 命令
+ENV NODE_ENV=production \
+    PATH="/app/node_modules/.bin:$PATH"
 
 # 设置入口点
-# 注意：根据实际项目调整入口文件路径
-ENTRYPOINT ["node", "src/index.js"]
+# 注意：根据实际项目的 package.json 中 bin 字段定义的命令名称调整
+# 例如：my-mcp-server 等
+ENTRYPOINT ["mcp-server-name"]
 ```
 
 #### docker-compose.yml 模板
@@ -474,58 +477,7 @@ Docker 部署后，验证以下内容：
 4. **网络**：如需要，端口已暴露
 5. **错误处理**：错误正确传播
 
-## 实际案例分析：mcp-caiyun-weather
-
-以下是基于 [mcp-caiyun-weather](https://github.com/caiyunapp/mcp-caiyun-weather) 项目的 Docker 化分析。
-
-### 原始配置（本地运行）
-
-```json
-{
-  "mcpServers": {
-    "caiyun-weather": {
-      "command": "uvx",
-      "args": ["mcp-caiyun-weather"],
-      "env": {
-        "CAIYUN_WEATHER_API_TOKEN": "YOUR_API_KEY_HERE"
-      }
-    }
-  }
-}
-```
-
-### Docker 化后配置
-
-```json
-{
-  "mcpServers": {
-    "caiyun-weather": {
-      "timeout": 60,
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "-e",
-        "CAIYUN_WEATHER_API_TOKEN=YOUR_API_TOKEN_HERE",
-        "--rm",
-        "mcp/caiyun-weather"
-      ],
-      "transportType": "stdio"
-    }
-  }
-}
-```
-
-### 关键差异分析
-
-| 项目 | 原始配置 | Docker 配置 |
-|------|----------|-------------|
-| command | `uvx` | `docker` |
-| args | `["mcp-caiyun-weather"]` | `["run", "-i", "-e", "...", "--rm", "mcp/caiyun-weather"]` |
-| timeout | 无 | `60` |
-| transportType | 无 | `"stdio"` |
-
-### 关键参数说明
+## 关键参数说明
 
 | 参数 | 说明 |
 |------|------|
@@ -659,7 +611,7 @@ docker images mcp-service:latest
 ```
 1. 确定项目类型（Python-uv / Python-pip / Node.js）
 2. 读取对应的模板文件
-3. 仅替换占位符（mcp_server_name、入口路径等）
+3. 仅替换占位符（mcp-server-name、入口路径等）
 4. 如需额外修改，添加注释说明原因
 5. 输出最终文件
 6. 执行自检清单验证
@@ -713,18 +665,18 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
-# 使用缓存挂载安装依赖
+# 使用缓存挂载安装依赖和项目
 # --mount=type=cache,target=/root/.cache/uv: 缓存 uv 下载的包，加速后续构建
 # --mount=type=bind,source=uv.lock,target=uv.lock: 绑定锁文件
 # --mount=type=bind,source=pyproject.toml,target=pyproject.toml: 绑定项目配置文件
 # --frozen: 使用锁文件，确保可重复构建
-# --no-install-project: 只安装依赖，不安装项目本身
 # --no-dev: 不安装开发依赖
 # --no-editable: 以非可编辑模式安装
+# 注意：不使用 --no-install-project，以便安装项目入口点脚本到 .venv/bin/
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev --no-editable
+    uv sync --frozen --no-dev --no-editable
 
 # 阶段 2：运行阶段 - 精简的生产镜像
 FROM python:3.11-slim
@@ -752,8 +704,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
 # 设置入口点
-# 注意：根据实际项目调整模块名称
-ENTRYPOINT ["python", "-m", "mcp_server_name"]
+# 注意：根据实际项目的 pyproject.toml 中 [project.scripts] 定义的入口点名称调整
+# 例如：my-mcp-server 等
+ENTRYPOINT ["mcp-server-name"]
 ```
 
 ### templates/Dockerfile.python-pip
@@ -807,8 +760,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
 # 设置入口点
-# 注意：根据实际项目调整模块名称或脚本路径
-ENTRYPOINT ["python", "-m", "mcp_server"]
+# 注意：根据实际项目的 setup.py 或 pyproject.toml 中定义的入口点名称调整
+# 例如：my-mcp-server 等
+ENTRYPOINT ["mcp-server-name"]
 ```
 
 ### templates/Dockerfile.nodejs
@@ -861,9 +815,12 @@ USER mcpuser
 
 # 设置环境变量
 # NODE_ENV=production: 生产环境模式
-ENV NODE_ENV=production
+# PATH: 将 node_modules/.bin 添加到 PATH，支持直接执行 package.json 中定义的 bin 命令
+ENV NODE_ENV=production \
+    PATH="/app/node_modules/.bin:$PATH"
 
 # 设置入口点
-# 注意：根据实际项目调整入口文件路径
-ENTRYPOINT ["node", "src/index.js"]
+# 注意：根据实际项目的 package.json 中 bin 字段定义的命令名称调整
+# 例如：my-mcp-server 等
+ENTRYPOINT ["mcp-server-name"]
 ```

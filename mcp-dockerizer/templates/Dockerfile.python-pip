@@ -46,5 +46,6 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
 # 设置入口点
-# 注意：根据实际项目调整模块名称或脚本路径
-ENTRYPOINT ["python", "-m", "mcp_server"]
+# 注意：根据实际项目的 setup.py 或 pyproject.toml 中定义的入口点名称调整
+# 例如：my-mcp-server 等
+ENTRYPOINT ["mcp-server-name"]

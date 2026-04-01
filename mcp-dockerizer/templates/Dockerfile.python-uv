@@ -15,18 +15,18 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
-# 使用缓存挂载安装依赖
+# 使用缓存挂载安装依赖和项目
 # --mount=type=cache,target=/root/.cache/uv: 缓存 uv 下载的包，加速后续构建
 # --mount=type=bind,source=uv.lock,target=uv.lock: 绑定锁文件
 # --mount=type=bind,source=pyproject.toml,target=pyproject.toml: 绑定项目配置文件
 # --frozen: 使用锁文件，确保可重复构建
-# --no-install-project: 只安装依赖，不安装项目本身
 # --no-dev: 不安装开发依赖
 # --no-editable: 以非可编辑模式安装
+# 注意：不使用 --no-install-project，以便安装项目入口点脚本到 .venv/bin/
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev --no-editable
+    uv sync --frozen --no-dev --no-editable
 
 # 阶段 2：运行阶段 - 精简的生产镜像
 FROM python:3.11-slim
@@ -54,5 +54,6 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
 # 设置入口点
-# 注意：根据实际项目调整模块名称
-ENTRYPOINT ["python", "-m", "mcp_server_name"]
+# 注意：根据实际项目的 pyproject.toml 中 [project.scripts] 定义的入口点名称调整
+# 例如：my-mcp-server 等
+ENTRYPOINT ["mcp-server-name"]
