@@ -72,6 +72,47 @@ grep -r "open(\|Path(" --include="*.py"
 
 ### 步骤 3：生成 Docker 配置
 
+#### ⚠️ 模板遵循约束（强制要求）
+
+**生成 Dockerfile 时必须严格遵守以下规则：**
+
+1. **必须使用模板**：根据项目类型选择对应模板文件：
+   - Python + uv 项目 → 使用 `templates/Dockerfile.python-uv`
+   - Python + pip 项目 → 使用 `templates/Dockerfile.python-pip`
+   - Node.js 项目 → 使用 `templates/Dockerfile.nodejs`
+
+2. **最小修改原则**：
+   - **禁止**：重写、重构或"优化"模板结构
+   - **禁止**：更改基础镜像版本（除非有明确的兼容性要求）
+   - **禁止**：删除或修改注释
+   - **禁止**：更改构建阶段名称、工作目录路径等结构性元素
+   - **允许修改的内容**（仅限以下项）：
+     - `ENTRYPOINT` 中的模块名称/脚本路径
+     - 必要时添加额外的 `COPY` 命令（如项目有特殊目录结构）
+     - 必要时添加额外的环境变量（如项目有特殊需求）
+
+3. **模板占位符替换规则**：
+   | 占位符 | 说明 | 示例替换 |
+   |--------|------|----------|
+   | `mcp_server_name` | Python 模块入口名称 | `mcp_server_qweather` |
+   | `mcp_server` | Python 模块入口名称 | `my_mcp_service` |
+   | `src/index.js` | Node.js 入口文件路径 | `dist/main.js` |
+
+4. **生成流程**：
+   ```
+   步骤 A: 读取对应模板文件
+   步骤 B: 仅替换必要的占位符
+   步骤 C: 如需额外修改，必须在注释中说明原因
+   步骤 D: 输出最终 Dockerfile
+   ```
+
+5. **验证检查清单**（生成后自检）：
+   - [ ] 是否保留了两阶段构建结构？
+   - [ ] 是否保留了所有注释？
+   - [ ] 是否只修改了允许修改的部分？
+   - [ ] 基础镜像版本是否与模板一致？
+   - [ ] 用户创建命令是否与模板一致？
+
 #### 两步式打包方案说明
 
 所有模板均采用**两步式打包（Multi-stage Build）**，核心思想：
@@ -261,6 +302,8 @@ ENTRYPOINT ["node", "src/index.js"]
 
 #### docker-compose.yml 模板
 
+**⚠️ 必须严格遵循以下模板结构，仅修改必要字段：**
+
 ```yaml
 version: '3.8'
 
@@ -281,7 +324,21 @@ services:
     #   - "3000:3000"
 ```
 
+**允许修改的字段**：
+- `services` 下的服务名称
+- `container_name`
+- `environment` 中的环境变量
+- `volumes` 中的挂载路径
+- `ports`（如需要）
+
+**禁止修改的字段**：
+- `version`
+- `build.context` 和 `build.dockerfile`
+- `restart` 策略
+
 #### .dockerignore 模板
+
+**⚠️ 必须直接使用以下内容，不得删减：**
 
 ```
 node_modules
@@ -301,9 +358,11 @@ venv
 .vscode
 ```
 
+**允许添加**：项目特定的排除项（如 `dist/`、`build/` 等）
+
 ### 步骤 4：配置 MCP 客户端
 
-更新 MCP 客户端配置以使用 Docker 容器。
+**⚠️ 配置转换必须严格遵循以下模板格式：**
 
 #### Claude Desktop 配置 (claude_desktop_config.json)
 
@@ -322,7 +381,7 @@ venv
 }
 ```
 
-**转换后（Docker 运行）：**
+**转换后（Docker 运行）- 必须使用此格式：**
 ```json
 {
   "mcpServers": {
@@ -344,6 +403,25 @@ venv
   }
 }
 ```
+
+**配置转换规则**：
+
+| 原始字段 | Docker 配置 | 说明 |
+|----------|-------------|------|
+| `command` | `"docker"` | **必须** |
+| `args[0]` | `"run"` | **必须** |
+| `args` 中添加 | `"--rm"` | **必须** - 自动清理容器 |
+| `args` 中添加 | `"-i"` | **必须** - stdio 通信必需 |
+| `args` 中添加 | `"-e", "VAR_NAME"` | **必须** - 传递环境变量 |
+| `args` 最后 | `"镜像名:latest"` | **必须** - 镜像名称 |
+| `timeout` | `60` | **必须** - Docker 启动需要时间 |
+| `transportType` | `"stdio"` | **必须** - 明确通信类型 |
+
+**禁止事项**：
+- 禁止省略 `--rm` 参数
+- 禁止省略 `-i` 参数
+- 禁止省略 `timeout` 字段
+- 禁止省略 `transportType` 字段
 
 ### 步骤 5：验证功能一致性
 
@@ -498,4 +576,72 @@ docker run --rm -it --entrypoint /bin/sh mcp-service:latest
 
 # 查看镜像大小
 docker images mcp-service:latest
+```
+
+## ⚠️ 模板合规性总结
+
+**生成任何配置文件前，必须先阅读并确认以下规则：**
+
+### Dockerfile 生成规则
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🔴 禁止行为                                                 │
+├─────────────────────────────────────────────────────────────┤
+│  ❌ 自行编写 Dockerfile（必须从模板复制）                      │
+│  ❌ 修改基础镜像版本                                          │
+│  ❌ 删除或修改模板中的注释                                     │
+│  ❌ 更改两阶段构建的结构                                       │
+│  ❌ 修改用户创建命令                                          │
+│  ❌ 更改工作目录路径                                          │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  🟢 允许修改                                                  │
+├─────────────────────────────────────────────────────────────┤
+│  ✅ ENTRYPOINT 中的模块名称/脚本路径                          │
+│  ✅ 添加必要的 COPY 命令（项目特殊目录）                        │
+│  ✅ 添加必要的环境变量                                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 模板文件路径
+
+| 项目类型 | 模板文件 |
+|----------|----------|
+| Python + uv | `templates/Dockerfile.python-uv` |
+| Python + pip | `templates/Dockerfile.python-pip` |
+| Node.js | `templates/Dockerfile.nodejs` |
+
+### 生成流程（必须遵循）
+
+```
+1. 确定项目类型（Python-uv / Python-pip / Node.js）
+2. 读取对应的模板文件
+3. 仅替换占位符（mcp_server_name、入口路径等）
+4. 如需额外修改，添加注释说明原因
+5. 输出最终文件
+6. 执行自检清单验证
+```
+
+### 违规示例 vs 正确示例
+
+**❌ 错误：自行编写**
+```dockerfile
+FROM python:3.12
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+CMD ["python", "main.py"]
+```
+
+**✅ 正确：基于模板**
+```dockerfile
+# syntax=docker/dockerfile:1
+
+# 阶段 1：构建阶段 - 用于安装依赖
+FROM python:3.11-slim AS builder
+WORKDIR /app
+# ...（完整复制模板，仅修改 ENTRYPOINT）
+ENTRYPOINT ["python", "-m", "my_actual_module"]
 ```
