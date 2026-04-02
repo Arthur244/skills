@@ -153,10 +153,46 @@ curl -sL "https://raw.githubusercontent.com/OWNER/REPO/BRANCH/$skillName/templat
 
 ### Step 5: 记录安装信息
 
+**检查 .gitignore 并创建 .skills 目录**：
+
 ```powershell
 # 创建 .skills 目录
 $skillsDir = Join-Path $installBasePath ".skills"
 New-Item -ItemType Directory -Path $skillsDir -Force
+
+# 检查 .gitignore 中是否包含 .skills/ 忽略规则
+$gitignorePath = Join-Path $installBasePath ".gitignore"
+$needsGitignoreEntry = $true
+
+if (Test-Path $gitignorePath) {
+    $gitignoreContent = Get-Content $gitignorePath -Raw
+    if ($gitignoreContent -match '\.skills[/\\]?' -or $gitignoreContent -match '^\.skills$') {
+        Write-Host "✓ .gitignore 已包含 .skills/ 忽略规则"
+        $needsGitignoreEntry = $false
+    }
+}
+
+# 如果 .gitignore 中没有 .skills/ 忽略规则，询问用户
+if ($needsGitignoreEntry) {
+    Write-Host ""
+    Write-Host "⚠ 检测到 .gitignore 中未包含 .skills/ 忽略规则"
+    Write-Host "  .skills/ 目录包含本地安装的 skill 和审计日志，通常不应提交到版本控制。"
+    Write-Host ""
+    $addToGitignore = Read-Host "是否将 .skills/ 添加到 .gitignore? (Y/n)"
+    
+    if ($addToGitignore -ne 'n' -and $addToGitignore -ne 'N') {
+        # 确保 .gitignore 文件存在
+        if (-not (Test-Path $gitignorePath)) {
+            New-Item -ItemType File -Path $gitignorePath -Force | Out-Null
+        }
+        
+        # 添加 .skills/ 到 .gitignore
+        Add-Content -Path $gitignorePath -Value "`n# 本地 skill 管理目录（安装时生成）`n.skills/"
+        Write-Host "✓ 已将 .skills/ 添加到 .gitignore"
+    } else {
+        Write-Host "  已跳过添加 .gitignore 规则"
+    }
+}
 
 # 记录到审计日志
 $timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
@@ -210,8 +246,18 @@ curl -sL "https://raw.githubusercontent.com/Arthur244/skills/main/mcp-dockerizer
 
 # === Step 5: 记录安装 ===
 $skillsDir = Join-Path $installBasePath ".skills"
-$auditLogPath = Join-Path $skillsDir "audit.log"
 New-Item -ItemType Directory -Path $skillsDir -Force
+
+# 检查 .gitignore
+$gitignorePath = Join-Path $installBasePath ".gitignore"
+if ((Test-Path $gitignorePath) -and ((Get-Content $gitignorePath -Raw) -match '\.skills[/\\]?')) {
+    Write-Host "✓ .gitignore 已包含 .skills/ 忽略规则"
+} else {
+    Write-Host "⚠ 建议将 .skills/ 添加到 .gitignore"
+    # 询问用户是否添加...
+}
+
+$auditLogPath = Join-Path $skillsDir "audit.log"
 "[2026-04-01T19:00:00Z] INSTALL mcp-dockerizer@1.0.0 source=https://github.com/Arthur244/skills/tree/main/mcp-dockerizer risk=medium approved=user" | Add-Content $auditLogPath
 ```
 
