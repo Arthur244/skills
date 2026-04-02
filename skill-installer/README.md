@@ -22,7 +22,7 @@
 AI 会自动：
 1. 确定安装路径（优先使用默认路径）
 2. 解析 URL 提取信息
-3. 推荐安装 skill-vetter 进行安全审查（可选）
+3. **⚠️ 强烈建议安装 skill-vetter 进行安全审查**
 4. 下载并审查 SKILL.md
 5. 检查危险信号
 6. 下载所有文件
@@ -72,19 +72,44 @@ export SKILL_DEFAULT_PATH="/home/user/skills"
 .skills/
 ```
 
-### 推荐安装 skill-vetter
+### ⚠️ 强烈建议安装 skill-vetter
 
-安装完成后会提示安装 `skill-vetter` 用于审查后续安装的 skill 的安全性：
+**重要安全提示：安装完成后会强烈建议安装 `skill-vetter` 用于审查后续安装的 skill 的安全性！**
+
+安装过程中会显示醒目的提示框：
+
+```
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                  ║
+║  ⚠️  重要安全提示                                                ║
+║                                                                  ║
+║  检测到您尚未安装 skill-vetter 安全审查工具！                    ║
+║                                                                  ║
+║  skill-vetter 可以帮助您：                                       ║
+║  • 检查 skill 来源可信度                                         ║
+║  • 识别危险信号和可疑模式                                        ║
+║  • 分析权限范围                                                  ║
+║  • 对 skill 进行风险等级分类                                     ║
+║                                                                  ║
+║  🔒 强烈建议安装此工具以保护您的系统安全！                       ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+```
 
 **skill-vetter 功能**：
-- 检查 skill 来源可信度
-- 识别危险信号和可疑模式
-- 分析权限范围
-- 对 skill 进行风险等级分类
+- 🔒 **安全第一** - 在安装未知来源的 skill 前进行安全检查
+- 🛡️ **风险识别** - 自动识别危险信号和可疑模式
+- 📊 **权限分析** - 分析 skill 所需的权限范围
+- ⚠️ **风险分级** - 对 skill 进行风险等级分类
 
 **内置下载链接**：
 - GitHub: `https://github.com/Arthur244/skills/tree/main/skill-vetter`
-- 直接下载: `https://raw.githubusercontent.com/Arthur244/skills/main/skill-vetter/SKILL.md`
+- 直接下载: `https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter/SKILL.md`
+
+**为什么需要安装？**
+- 没有安全审查工具，您可能会安装恶意 skill
+- skill-vetter 可以帮助识别潜在的安全风险
+- 保护您的系统和数据安全
 
 ## 为什么使用 curl
 
