@@ -22,11 +22,12 @@
 AI 会自动：
 1. 确定安装路径（优先使用默认路径）
 2. 解析 URL 提取信息
-3. 下载并审查 SKILL.md
-4. 检查危险信号
-5. 下载所有文件
-6. 检查 .gitignore 并提示添加 `.skills/` 忽略规则
-7. 记录安装日志
+3. 推荐安装 skill-vetter 进行安全审查（可选）
+4. 下载并审查 SKILL.md
+5. 检查危险信号
+6. 下载所有文件
+7. 检查 .gitignore 并提示添加 `.skills/` 忽略规则
+8. 记录安装日志
 
 ### 支持的 URL 格式
 
@@ -71,6 +72,20 @@ export SKILL_DEFAULT_PATH="/home/user/skills"
 .skills/
 ```
 
+### 推荐安装 skill-vetter
+
+安装完成后会提示安装 `skill-vetter` 用于审查后续安装的 skill 的安全性：
+
+**skill-vetter 功能**：
+- 检查 skill 来源可信度
+- 识别危险信号和可疑模式
+- 分析权限范围
+- 对 skill 进行风险等级分类
+
+**内置下载链接**：
+- GitHub: `https://github.com/Arthur244/skills/tree/main/skill-vetter`
+- 直接下载: `https://raw.githubusercontent.com/Arthur244/skills/main/skill-vetter/SKILL.md`
+
 ## 为什么使用 curl
 
 **`curl` 比 `Invoke-WebRequest` 更可靠**：
@@ -102,24 +117,30 @@ export SKILL_DEFAULT_PATH="/home/user/skills"
        ▼
 ┌─────────────┐
 │ Step 2:     │
-│ 安全审查    │─── 危险信号 ──→ 拒绝安装
+│ 推荐工具    │─── 提示安装 skill-vetter
 └──────┬──────┘
        │
        ▼
 ┌─────────────┐
 │ Step 3:     │
-│ 获取文件    │
+│ 安全审查    │─── 危险信号 ──→ 拒绝安装
 └──────┬──────┘
        │
        ▼
 ┌─────────────┐
 │ Step 4:     │
-│ 下载安装    │
+│ 获取文件    │
 └──────┬──────┘
        │
        ▼
 ┌─────────────┐
 │ Step 5:     │
+│ 下载安装    │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│ Step 6:     │
 │ 记录日志    │
 └─────────────┘
 ```

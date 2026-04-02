@@ -86,7 +86,73 @@ URL 格式: https://github.com/OWNER/REPO/tree/BRANCH/SKILL_NAME
 解析: owner=Arthur244, repo=skills, branch=main, skill_name=mcp-dockerizer
 ```
 
-### Step 2: 安全审查（必须）
+### Step 2: 推荐安装安全审查工具（可选）
+
+在安全审查之前，建议先安装 `skill-vetter` 用于审查 skill 的安全性：
+
+```powershell
+# 检查是否已安装 skill-vetter
+$vetterPath = Join-Path $installBasePath "skill-vetter/SKILL.md"
+
+if (-not (Test-Path $vetterPath)) {
+    Write-Host ""
+    Write-Host "╔════════════════════════════════════════════════════════════╗"
+    Write-Host "║  🔒 推荐安装 skill-vetter 进行安全审查                      ║"
+    Write-Host "╠════════════════════════════════════════════════════════════╣"
+    Write-Host "║  skill-vetter 是一个安全优先的 skill 审查工具，可以：       ║"
+    Write-Host "║  • 检查 skill 来源可信度                                   ║"
+    Write-Host "║  • 识别危险信号和可疑模式                                  ║"
+    Write-Host "║  • 分析权限范围                                            ║"
+    Write-Host "║  • 对 skill 进行风险等级分类                               ║"
+    Write-Host "╚════════════════════════════════════════════════════════════╝"
+    Write-Host ""
+    
+    $installVetter = Read-Host "是否现在安装 skill-vetter? (Y/n)"
+    
+    if ($installVetter -ne 'n' -and $installVetter -ne 'N') {
+        Write-Host ""
+        Write-Host "正在安装 skill-vetter..."
+        
+        # skill-vetter 下载链接
+        $vetterUrl = "https://github.com/Arthur244/skills/tree/main/skill-vetter"
+        $vetterRawBase = "https://raw.githubusercontent.com/Arthur244/skills/main/skill-vetter"
+        
+        # 创建 skill-vetter 目录
+        $vetterDir = Join-Path $installBasePath "skill-vetter"
+        New-Item -ItemType Directory -Path $vetterDir -Force | Out-Null
+        
+        # 下载 SKILL.md
+        curl -sL "$vetterRawBase/SKILL.md" -o "$vetterDir/SKILL.md"
+        
+        # 下载 README.md
+        curl -sL "$vetterRawBase/README.md" -o "$vetterDir/README.md"
+        
+        if (Test-Path "$vetterDir/SKILL.md") {
+            Write-Host "✅ skill-vetter 安装成功"
+            Write-Host "   位置: $vetterDir"
+            Write-Host ""
+            Write-Host "现在可以使用 skill-vetter 来审查后续安装的 skill 了！"
+        } else {
+            Write-Host "❌ skill-vetter 安装失败，请手动安装："
+            Write-Host "   $vetterUrl"
+        }
+    } else {
+        Write-Host ""
+        Write-Host "您可以稍后手动安装 skill-vetter："
+        Write-Host "  URL: https://github.com/Arthur244/skills/tree/main/skill-vetter"
+        Write-Host ""
+        Write-Host "或使用以下命令："
+        Write-Host "  curl -sL 'https://raw.githubusercontent.com/Arthur244/skills/main/skill-vetter/SKILL.md' -o './skill-vetter/SKILL.md'"
+    }
+}
+```
+
+**内置下载链接**：
+- **skill-vetter GitHub 页面**: `https://github.com/Arthur244/skills/tree/main/skill-vetter`
+- **SKILL.md 原始文件**: `https://raw.githubusercontent.com/Arthur244/skills/main/skill-vetter/SKILL.md`
+- **README.md 原始文件**: `https://raw.githubusercontent.com/Arthur244/skills/main/skill-vetter/README.md`
+
+### Step 3: 安全审查（必须）
 
 **先下载 SKILL.md 进行审查**：
 
@@ -115,7 +181,7 @@ curl -sL "https://raw.githubusercontent.com/OWNER/REPO/BRANCH/SKILL_NAME/SKILL.m
 ─────────────────────────────────────────
 ```
 
-### Step 3: 获取文件列表
+### Step 4: 获取文件列表
 
 使用 GitHub API 获取 skill 文件列表：
 
@@ -126,7 +192,7 @@ curl -sH "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/
 
 解析返回的 JSON 获取文件名列表。
 
-### Step 4: 执行安装
+### Step 5: 执行安装
 
 **创建目录并下载所有文件**：
 
@@ -151,7 +217,7 @@ New-Item -ItemType Directory -Path $templatesPath -Force
 curl -sL "https://raw.githubusercontent.com/OWNER/REPO/BRANCH/$skillName/templates/Dockerfile.python-uv" -o "$templatesPath/Dockerfile.python-uv"
 ```
 
-### Step 5: 记录安装信息
+### Step 6: 记录安装信息
 
 **检查 .gitignore 并创建 .skills 目录**：
 
@@ -220,7 +286,14 @@ if ($defaultSkillPath) {
 # === Step 1: 解析 URL ===
 # owner=Arthur244, repo=skills, branch=main, skill_name=mcp-dockerizer
 
-# === Step 2: 安全审查 ===
+# === Step 2: 推荐安装安全审查工具 ===
+# 检查是否已安装 skill-vetter，如未安装则提示用户安装
+$vetterPath = Join-Path $installBasePath "skill-vetter/SKILL.md"
+if (-not (Test-Path $vetterPath)) {
+    # 提示用户安装 skill-vetter...
+}
+
+# === Step 3: 安全审查 ===
 $cachePath = Join-Path $installBasePath ".skills/cache"
 New-Item -ItemType Directory -Path $cachePath -Force
 curl -sL "https://raw.githubusercontent.com/Arthur244/skills/main/mcp-dockerizer/SKILL.md" -o "$cachePath/mcp-dockerizer.SKILL.md"
@@ -228,10 +301,10 @@ curl -sL "https://raw.githubusercontent.com/Arthur244/skills/main/mcp-dockerizer
 # 读取并审查 SKILL.md 内容...
 # 确认无危险信号后继续
 
-# === Step 3: 获取文件列表 ===
+# === Step 4: 获取文件列表 ===
 # 从 GitHub API 或已知结构获取文件列表
 
-# === Step 4: 执行安装 ===
+# === Step 5: 执行安装 ===
 $skillPath = Join-Path $installBasePath "mcp-dockerizer"
 $templatesPath = Join-Path $skillPath "templates"
 
@@ -244,7 +317,7 @@ curl -sL "https://raw.githubusercontent.com/Arthur244/skills/main/mcp-dockerizer
 curl -sL "https://raw.githubusercontent.com/Arthur244/skills/main/mcp-dockerizer/templates/Dockerfile.python-pip" -o "$templatesPath/Dockerfile.python-pip"
 curl -sL "https://raw.githubusercontent.com/Arthur244/skills/main/mcp-dockerizer/templates/Dockerfile.nodejs" -o "$templatesPath/Dockerfile.nodejs"
 
-# === Step 5: 记录安装 ===
+# === Step 6: 记录安装 ===
 $skillsDir = Join-Path $installBasePath ".skills"
 New-Item -ItemType Directory -Path $skillsDir -Force
 
@@ -319,8 +392,9 @@ Skill: suspicious-skill
 1. **优先使用默认路径** - 检查 `SKILL_DEFAULT_PATH` 环境变量
 2. **必须使用 curl** - 避免权限问题
 3. **先审查后安装** - 安全第一
-4. **记录审计日志** - 可追溯
-5. **告知用户风险** - 透明
+4. **推荐安装 skill-vetter** - 用于审查后续 skill 的安全性
+5. **记录审计日志** - 可追溯
+6. **告知用户风险** - 透明
 
 ---
 
