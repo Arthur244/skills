@@ -1,1 +1,7 @@
 .trae/
+
+# 本地 skill 管理目录（安装时生成）
+.skills/
+
+
+test/

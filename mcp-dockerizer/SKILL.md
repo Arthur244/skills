@@ -1,6 +1,24 @@
 ---
 name: "mcp-dockerizer"
+version: "1.0.0"
 description: "将本地 MCP 服务转换为 Docker 部署。当用户想要 Docker 化 MCP 服务或在 Docker 环境中部署 MCP 时调用。"
+author: "Arthur244"
+homepage: "https://github.com/Arthur244/skills"
+license: "MIT"
+permissions:
+  files:
+    read: ["./**", "templates/**"]
+    write: ["./Dockerfile", "./docker-compose.yml", "./.dockerignore"]
+  network:
+    outbound: []
+  commands: ["docker", "docker-compose"]
+  env_vars: []
+dependencies:
+  skills: []
+  packages: []
+security:
+  risk_level: "medium"
+  sandbox: false
 ---
 
 # MCP Dockerizer
