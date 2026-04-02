@@ -2,6 +2,21 @@
 name: skill-vetter
 version: 1.0.0
 description: Security-first skill vetting for AI agents. Use before installing any skill from ClawdHub, GitHub, or other sources. Checks for red flags, permission scope, and suspicious patterns.
+author: "system"
+permissions:
+  files:
+    read: ["./**"]
+    write: []
+  network:
+    outbound: ["api.github.com:443"]
+  commands: ["curl", "gh"]
+  env_vars: []
+dependencies:
+  skills: []
+  packages: []
+security:
+  risk_level: "low"
+  sandbox: false
 ---
 
 # Skill Vetter 🔒
