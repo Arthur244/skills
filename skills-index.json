@@ -1,5 +1,5 @@
 {
-  "$schema": "./schemas/skills-index.json",
+  "$schema": "https://raw.githubusercontent.com/Arthur244/skills/main/schemas/skills-index.json",
   "version": "1.0",
   "updated_at": "2026-04-01T21:30:00Z",
   "repository": {
