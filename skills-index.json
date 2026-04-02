@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/schemas/skills-index.json",
   "version": "1.0",
-  "updated_at": "2026-04-01T21:30:00Z",
+  "updated_at": "2026-04-02T12:00:00Z",
   "repository": {
     "type": "github",
     "url": "https://github.com/Arthur244/skills",
@@ -9,35 +9,13 @@
   },
   "skills": [
     {
-      "name": "skill-template",
-      "version": "1.0.0",
-      "description": "按照模板格式化已有的 skill，使 skill 文件内容更标准化。",
-      "author": "system",
-      "license": "MIT",
-      "risk_level": "low",
-      "keywords": ["format", "standardize", "template", "normalize"],
-      "path": "skill-template",
-      "files": ["SKILL.md", "templates/SKILL.md.template", "templates/README.md.template"],
-      "permissions": {
-        "files": {
-          "read": ["./skill-template/**", "./*/**", "./skills-index.json"],
-          "write": ["./*/**", "./skills-index.json"]
-        },
-        "network": {},
-        "commands": []
-      },
-      "dependencies": {
-        "skills": []
-      }
-    },
-    {
       "name": "skill-installer",
-      "version": "1.2.0",
-      "description": "安全安装 GitHub 上的 skill。用户直接提供文件夹 URL，AI 使用 curl 执行安全审查和安装。",
+      "version": "1.3.0",
+      "description": "安全安装 GitHub 上的 skill。用户直接提供文件夹 URL，AI 使用 curl 执行安全审查和安装。支持 CDN 自动回退。",
       "author": "system",
       "license": "MIT",
       "risk_level": "medium",
-      "keywords": ["install", "security", "download", "github", "url", "curl"],
+      "keywords": ["install", "security", "download", "github", "url", "curl", "cdn"],
       "path": "skill-installer",
       "files": ["SKILL.md", "README.md"],
       "permissions": {
@@ -46,7 +24,7 @@
           "write": ["./.skills/manifest.json", "./.skills/audit.log"]
         },
         "network": {
-          "outbound": ["api.github.com:443", "raw.githubusercontent.com:443"]
+          "outbound": ["api.github.com:443", "raw.githubusercontent.com:443", "cdn.jsdelivr.net:443"]
         },
         "commands": ["curl"]
       },
@@ -79,9 +57,33 @@
       }
     },
     {
-      "name": "mcp-dockerizer",
+      "name": "skill-ghdl",
       "version": "1.0.0",
-      "description": "将本地 MCP 服务转换为 Docker 部署，支持 Node.js、Python 等运行时。",
+      "description": "GitHub 文件智能下载工具，支持 CDN 自动回退，解决 raw.githubusercontent.com 访问受限问题。",
+      "author": "system",
+      "license": "MIT",
+      "risk_level": "low",
+      "keywords": ["download", "github", "cdn", "fallback", "raw", "jsdelivr"],
+      "path": "skill-ghdl",
+      "files": ["SKILL.md", "README.md"],
+      "permissions": {
+        "files": {
+          "read": [],
+          "write": []
+        },
+        "network": {
+          "outbound": ["raw.githubusercontent.com:443", "cdn.jsdelivr.net:443", "api.github.com:443"]
+        },
+        "commands": ["curl"]
+      },
+      "dependencies": {
+        "skills": []
+      }
+    },
+    {
+      "name": "mcp-dockerizer",
+      "version": "1.1.0",
+      "description": "将本地 MCP 服务转换为 Docker 部署，支持 Node.js、Python 等运行时。支持 CDN 自动回退下载模板。",
       "author": "Arthur244",
       "license": "MIT",
       "risk_level": "medium",
@@ -93,7 +95,9 @@
           "read": ["./**", "templates/**"],
           "write": ["./Dockerfile", "./docker-compose.yml", "./.dockerignore"]
         },
-        "network": {},
+        "network": {
+          "outbound": ["raw.githubusercontent.com:443", "cdn.jsdelivr.net:443"]
+        },
         "commands": ["docker", "docker-compose"]
       },
       "dependencies": {
@@ -102,8 +106,8 @@
     }
   ],
   "categories": {
-    "development": ["skill-template"],
     "security": ["skill-installer", "skill-vetter"],
+    "utility": ["skill-ghdl"],
     "devops": ["mcp-dockerizer"],
     "mcp": ["mcp-dockerizer"]
   }
