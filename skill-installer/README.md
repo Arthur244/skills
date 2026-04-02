@@ -4,6 +4,7 @@
 
 ## 功能概述
 
+- **智能路径选择** - 优先使用客户端默认安装路径
 - **直接 URL 安装** - 用户直接提供 skill 文件夹链接
 - **安全审查** - 自动检测危险信号
 - **curl 下载** - 避免 Invoke-WebRequest 权限问题
@@ -18,11 +19,12 @@
 ```
 
 AI 会自动：
-1. 解析 URL 提取信息
-2. 下载并审查 SKILL.md
-3. 检查危险信号
-4. 下载所有文件
-5. 记录安装日志
+1. 确定安装路径（优先使用默认路径）
+2. 解析 URL 提取信息
+3. 下载并审查 SKILL.md
+4. 检查危险信号
+5. 下载所有文件
+6. 记录安装日志
 
 ### 支持的 URL 格式
 
@@ -30,6 +32,22 @@ AI 会自动：
 https://github.com/OWNER/REPO/tree/BRANCH/SKILL_NAME
 https://github.com/OWNER/REPO/tree/BRANCH/skills/SKILL_NAME
 ```
+
+### 设置默认安装路径
+
+通过环境变量设置客户端默认安装路径：
+
+```powershell
+# Windows PowerShell
+$env:SKILL_DEFAULT_PATH = "C:\Skills"
+
+# Linux/macOS
+export SKILL_DEFAULT_PATH="/home/user/skills"
+```
+
+**路径优先级**：
+1. 环境变量 `SKILL_DEFAULT_PATH`（客户端默认路径）
+2. 当前工作目录 `.`（预定义默认路径）
 
 ## 为什么使用 curl
 
@@ -48,6 +66,12 @@ https://github.com/OWNER/REPO/tree/BRANCH/skills/SKILL_NAME
 用户提供 URL
      │
      ▼
+┌─────────────┐
+│ Step 0:     │
+│ 确定路径    │─── 检查 SKILL_DEFAULT_PATH
+└──────┬──────┘
+       │
+       ▼
 ┌─────────────┐
 │ Step 1:     │
 │ 解析 URL    │
