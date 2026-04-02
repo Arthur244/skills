@@ -1,0 +1,110 @@
+{
+  "$schema": "./schemas/skills-index.json",
+  "version": "1.0",
+  "updated_at": "2026-04-01T21:30:00Z",
+  "repository": {
+    "type": "github",
+    "url": "https://github.com/Arthur244/skills",
+    "raw_base": "https://raw.githubusercontent.com/Arthur244/skills/main"
+  },
+  "skills": [
+    {
+      "name": "skill-template",
+      "version": "1.0.0",
+      "description": "按照模板格式化已有的 skill，使 skill 文件内容更标准化。",
+      "author": "system",
+      "license": "MIT",
+      "risk_level": "low",
+      "keywords": ["format", "standardize", "template", "normalize"],
+      "path": "skill-template",
+      "files": ["SKILL.md", "templates/SKILL.md.template", "templates/README.md.template"],
+      "permissions": {
+        "files": {
+          "read": ["./skill-template/**", "./*/**", "./skills-index.json"],
+          "write": ["./*/**", "./skills-index.json"]
+        },
+        "network": {},
+        "commands": []
+      },
+      "dependencies": {
+        "skills": []
+      }
+    },
+    {
+      "name": "skill-installer",
+      "version": "1.2.0",
+      "description": "安全安装 GitHub 上的 skill。用户直接提供文件夹 URL，AI 使用 curl 执行安全审查和安装。",
+      "author": "system",
+      "license": "MIT",
+      "risk_level": "medium",
+      "keywords": ["install", "security", "download", "github", "url", "curl"],
+      "path": "skill-installer",
+      "files": ["SKILL.md", "README.md"],
+      "permissions": {
+        "files": {
+          "read": ["./.skills/**", "./**/SKILL.md"],
+          "write": ["./.skills/manifest.json", "./.skills/audit.log"]
+        },
+        "network": {
+          "outbound": ["api.github.com:443", "raw.githubusercontent.com:443"]
+        },
+        "commands": ["curl"]
+      },
+      "dependencies": {
+        "skills": ["skill-vetter"]
+      }
+    },
+    {
+      "name": "skill-vetter",
+      "version": "1.0.0",
+      "description": "安全优先的 AI 代理技能审查工具。在安装任何 skill 之前进行安全检查。",
+      "author": "system",
+      "license": "MIT",
+      "risk_level": "low",
+      "keywords": ["security", "vetting", "audit", "review"],
+      "path": "skill-vetter",
+      "files": ["SKILL.md", "README.md"],
+      "permissions": {
+        "files": {
+          "read": ["./**"],
+          "write": []
+        },
+        "network": {
+          "outbound": ["api.github.com:443"]
+        },
+        "commands": ["curl", "gh"]
+      },
+      "dependencies": {
+        "skills": []
+      }
+    },
+    {
+      "name": "mcp-dockerizer",
+      "version": "1.0.0",
+      "description": "将本地 MCP 服务转换为 Docker 部署，支持 Node.js、Python 等运行时。",
+      "author": "Arthur244",
+      "license": "MIT",
+      "risk_level": "medium",
+      "keywords": ["docker", "mcp", "container", "deployment"],
+      "path": "mcp-dockerizer",
+      "files": ["SKILL.md", "README.md", "templates/Dockerfile.python-uv", "templates/Dockerfile.python-pip", "templates/Dockerfile.nodejs"],
+      "permissions": {
+        "files": {
+          "read": ["./**", "templates/**"],
+          "write": ["./Dockerfile", "./docker-compose.yml", "./.dockerignore"]
+        },
+        "network": {},
+        "commands": ["docker", "docker-compose"]
+      },
+      "dependencies": {
+        "skills": []
+      }
+    }
+  ],
+  "categories": {
+    "development": ["skill-template"],
+    "security": ["skill-installer", "skill-vetter"],
+    "devops": ["mcp-dockerizer"],
+    "mcp": ["mcp-dockerizer"]
+  }
+}

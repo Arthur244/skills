@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://skills.dev/schemas/skill-metadata.json",
+  "title": "Skill Metadata",
+  "description": "SKILL.md 文件的 YAML frontmatter 元数据格式",
+  "type": "object",
+  "required": ["name", "description"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Skill 唯一标识名称",
+      "pattern": "^[a-z0-9-]+$",
+      "examples": ["skill-installer", "mcp-dockerizer"]
+    },
+    "version": {
+      "type": "string",
+      "description": "语义化版本号",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$",
+      "default": "1.0.0",
+      "examples": ["1.0.0", "2.1.0-beta.1"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Skill 功能描述，用于 AI 判断调用时机",
+      "minLength": 10,
+      "maxLength": 500
+    },
+    "author": {
+      "type": "string",
+      "description": "作者名称或组织"
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri",
+      "description": "项目主页 URL"
+    },
+    "license": {
+      "type": "string",
+      "description": "开源许可证",
+      "enum": ["MIT", "Apache-2.0", "GPL-3.0", "BSD-3-Clause", "ISC", "proprietary"],
+      "default": "MIT"
+    },
+    "permissions": {
+      "type": "object",
+      "description": "权限声明",
+      "properties": {
+        "files": {
+          "type": "object",
+          "properties": {
+            "read": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "需要读取的文件路径模式"
+            },
+            "write": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "需要写入的文件路径模式"
+            }
+          }
+        },
+        "network": {
+          "type": "object",
+          "properties": {
+            "outbound": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "允许访问的外部网络地址"
+            }
+          }
+        },
+        "commands": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "需要执行的命令列表"
+        },
+        "env_vars": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "需要访问的环境变量"
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "依赖声明",
+      "properties": {
+        "skills": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "依赖的其他 skill"
+        },
+        "packages": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "依赖的软件包"
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "description": "安全配置",
+      "properties": {
+        "risk_level": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "default": "medium",
+          "description": "风险等级"
+        },
+        "sandbox": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否需要沙箱环境"
+        },
+        "audit_date": {
+          "type": "string",
+          "format": "date",
+          "description": "最后审计日期"
+        },
+        "audit_by": {
+          "type": "string",
+          "description": "审计者"
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}
