@@ -1,6 +1,6 @@
 ---
 name: "skill-installer"
-version: "1.2.0"
+version: "1.3.0"
 description: "安全安装 GitHub 上的 skill。用户直接提供 skill 文件夹链接，AI 执行安全审查和安装。"
 author: "system"
 permissions:
@@ -8,7 +8,7 @@ permissions:
     read: ["./.skills/**", "./**/SKILL.md"]
     write: ["./.skills/manifest.json", "./.skills/audit.log", "./<skill-name>/**"]
   network:
-    outbound: ["api.github.com:443", "raw.githubusercontent.com:443"]
+    outbound: ["api.github.com:443", "raw.githubusercontent.com:443", "cdn.jsdelivr.net:443"]
   commands: ["curl"]
   env_vars: []
 dependencies:
@@ -28,6 +28,100 @@ security:
 - 用户提供 GitHub skill 文件夹链接，如：`https://github.com/Arthur244/skills/tree/main/mcp-dockerizer`
 - 用户说："帮我安装这个 skill：[URL]"
 - 用户说："从这个链接安装 skill"
+
+## 🔄 CDN 回退机制
+
+由于某些网络环境下 `raw.githubusercontent.com` 可能无法访问，本工具实现了智能 CDN 回退机制。
+
+### 支持的下载源（按优先级）
+
+| 优先级 | 源 | 域名 | 说明 |
+|--------|-----|------|------|
+| 1 | GitHub Raw | `raw.githubusercontent.com` | 官方源，优先使用 |
+| 2 | jsDelivr CDN | `cdn.jsdelivr.net` | 公共 CDN，稳定性高 |
+
+### URL 转换规则
+
+```
+GitHub Raw 格式:
+https://raw.githubusercontent.com/{owner}/{repo}/refs/heads/{branch}/{path}
+
+jsDelivr CDN 格式:
+https://cdn.jsdelivr.net/gh/{owner}/{repo}@{branch}/{path}
+```
+
+**示例转换**：
+```
+原始: https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-installer/SKILL.md
+CDN:  https://cdn.jsdelivr.net/gh/Arthur244/skills@main/skill-installer/SKILL.md
+```
+
+### 智能下载函数
+
+```powershell
+function Invoke-SmartDownload {
+    param(
+        [string]$Owner,
+        [string]$Repo,
+        [string]$Branch,
+        [string]$FilePath,
+        [string]$OutputPath
+    )
+    
+    # 构建下载源列表（按优先级）
+    $sources = @(
+        @{
+            Name = "GitHub Raw"
+            Url = "https://raw.githubusercontent.com/$Owner/$Repo/refs/heads/$Branch/$FilePath"
+        },
+        @{
+            Name = "jsDelivr CDN"
+            Url = "https://cdn.jsdelivr.net/gh/$Owner@$Repo@$Branch/$FilePath"
+        }
+    )
+    
+    foreach ($source in $sources) {
+        Write-Host "  尝试从 $($source.Name) 下载..." -NoNewline
+        
+        try {
+            # 使用 curl 下载，设置超时和重试
+            $result = curl -sL --connect-timeout 10 --max-time 30 "$($source.Url)" -o "$OutputPath" 2>&1
+            
+            # 检查文件是否下载成功且有内容
+            if ((Test-Path $OutputPath) -and ((Get-Item $OutputPath).Length -gt 0)) {
+                Write-Host " ✓ 成功"
+                return $true
+            } else {
+                Write-Host " ✗ 失败（空文件）"
+                continue
+            }
+        } catch {
+            Write-Host " ✗ 失败（$($_.Exception.Message)）"
+            continue
+        }
+    }
+    
+    Write-Host "  ❌ 所有下载源均失败"
+    return $false
+}
+```
+
+### 使用示例
+
+```powershell
+# 下载 SKILL.md
+$downloaded = Invoke-SmartDownload `
+    -Owner "Arthur244" `
+    -Repo "skills" `
+    -Branch "main" `
+    -FilePath "skill-installer/SKILL.md" `
+    -OutputPath "./skill-installer/SKILL.md"
+
+if (-not $downloaded) {
+    Write-Host "❌ 下载失败，请检查网络连接或手动下载"
+    exit 1
+}
+```
 
 ## ⚠️ 重要：下载命令规范
 
@@ -170,11 +264,26 @@ if (-not (Test-Path $vetterPath)) {
         Write-Host "下载地址: $vetterRawBase"
         Write-Host ""
         
-        # 下载 SKILL.md
-        curl -sL "$vetterRawBase/SKILL.md" -o "$vetterDir/SKILL.md"
+        # 下载 SKILL.md（使用智能下载函数）
+        # 从 URL 中提取 owner, repo, branch
+        $vetterOwner = if ($vetterRawBase -match "githubusercontent\.com/([^/]+)/") { $matches[1] } else { "Arthur244" }
+        $vetterRepo = if ($vetterRawBase -match "githubusercontent\.com/[^/]+/([^/]+)/") { $matches[1] } else { "skills" }
+        $vetterBranch = if ($vetterRawBase -match "/refs/heads/([^/]+)/") { $matches[1] } else { "main" }
+        
+        Invoke-SmartDownload `
+            -Owner $vetterOwner `
+            -Repo $vetterRepo `
+            -Branch $vetterBranch `
+            -FilePath "skill-vetter/SKILL.md" `
+            -OutputPath "$vetterDir/SKILL.md"
         
         # 下载 README.md
-        curl -sL "$vetterRawBase/README.md" -o "$vetterDir/README.md"
+        Invoke-SmartDownload `
+            -Owner $vetterOwner `
+            -Repo $vetterRepo `
+            -Branch $vetterBranch `
+            -FilePath "skill-vetter/README.md" `
+            -OutputPath "$vetterDir/README.md"
         
         if (Test-Path "$vetterDir/SKILL.md") {
             Write-Host ""
@@ -240,10 +349,16 @@ skill-vetter 的下载采用智能链接策略：
    - **SKILL.md 原始文件**: `https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter/SKILL.md`
    - **README.md 原始文件**: `https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter/README.md`
 
+3. **CDN 自动回退**：
+   - 使用 `Invoke-SmartDownload` 函数自动尝试多个下载源
+   - GitHub Raw 失败时自动切换到 jsDelivr CDN
+   - 提高下载成功率，解决网络访问问题
+
 **链接格式**：
 ```
 上下文链接: https://raw.githubusercontent.com/{owner}/{repo}/refs/heads/{branch}/skill-vetter/SKILL.md
 固化链接:   https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter/SKILL.md
+CDN 回退:   https://cdn.jsdelivr.net/gh/Arthur244/skills@main/skill-vetter/SKILL.md
 ```
 
 **为什么需要 skill-vetter？**
@@ -261,8 +376,18 @@ skill-vetter 的下载采用智能链接策略：
 $cachePath = Join-Path $installBasePath ".skills/cache"
 New-Item -ItemType Directory -Path $cachePath -Force
 
-# 下载 SKILL.md 进行审查（使用 curl）
-curl -sL "https://raw.githubusercontent.com/OWNER/REPO/BRANCH/SKILL_NAME/SKILL.md" -o "$cachePath/SKILL_NAME.SKILL.md"
+# 下载 SKILL.md 进行审查（使用智能下载函数，自动 CDN 回退）
+$downloaded = Invoke-SmartDownload `
+    -Owner "OWNER" `
+    -Repo "REPO" `
+    -Branch "BRANCH" `
+    -FilePath "SKILL_NAME/SKILL.md" `
+    -OutputPath "$cachePath/SKILL_NAME.SKILL.md"
+
+if (-not $downloaded) {
+    Write-Host "❌ 无法下载 SKILL.md，请检查网络连接"
+    exit 1
+}
 ```
 
 **审查检查清单**：
@@ -302,19 +427,39 @@ $skillName = "SKILL_NAME"
 $skillPath = Join-Path $installBasePath $skillName
 New-Item -ItemType Directory -Path $skillPath -Force
 
-# 下载 SKILL.md（必需）
-curl -sL "https://raw.githubusercontent.com/OWNER/REPO/BRANCH/$skillName/SKILL.md" -o "$skillPath/SKILL.md"
+# 下载 SKILL.md（必需，使用智能下载函数）
+$downloaded = Invoke-SmartDownload `
+    -Owner "OWNER" `
+    -Repo "REPO" `
+    -Branch "BRANCH" `
+    -FilePath "$skillName/SKILL.md" `
+    -OutputPath "$skillPath/SKILL.md"
 
-# 下载 README.md（如果存在）
-curl -sL "https://raw.githubusercontent.com/OWNER/REPO/BRANCH/$skillName/README.md" -o "$skillPath/README.md"
+if (-not $downloaded) {
+    Write-Host "❌ 无法下载 SKILL.md"
+    exit 1
+}
+
+# 下载 README.md（如果存在，使用智能下载函数）
+Invoke-SmartDownload `
+    -Owner "OWNER" `
+    -Repo "REPO" `
+    -Branch "BRANCH" `
+    -FilePath "$skillName/README.md" `
+    -OutputPath "$skillPath/README.md"
 
 # 下载子目录文件（如 templates/）
 # 先创建子目录
 $templatesPath = Join-Path $skillPath "templates"
 New-Item -ItemType Directory -Path $templatesPath -Force
 
-# 下载子目录中的文件
-curl -sL "https://raw.githubusercontent.com/OWNER/REPO/BRANCH/$skillName/templates/Dockerfile.python-uv" -o "$templatesPath/Dockerfile.python-uv"
+# 下载子目录中的文件（使用智能下载函数）
+Invoke-SmartDownload `
+    -Owner "OWNER" `
+    -Repo "REPO" `
+    -Branch "BRANCH" `
+    -FilePath "$skillName/templates/Dockerfile.python-uv" `
+    -OutputPath "$templatesPath/Dockerfile.python-uv"
 ```
 
 ### Step 6: 记录安装信息
@@ -404,7 +549,19 @@ if (-not (Test-Path $vetterPath)) {
 # === Step 3: 安全审查 ===
 $cachePath = Join-Path $installBasePath ".skills/cache"
 New-Item -ItemType Directory -Path $cachePath -Force
-curl -sL "$rawBase/$skillName/SKILL.md" -o "$cachePath/$skillName.SKILL.md"
+
+# 使用智能下载函数（自动 CDN 回退）
+$downloaded = Invoke-SmartDownload `
+    -Owner $owner `
+    -Repo $repo `
+    -Branch $branch `
+    -FilePath "$skillName/SKILL.md" `
+    -OutputPath "$cachePath/$skillName.SKILL.md"
+
+if (-not $downloaded) {
+    Write-Host "❌ 无法下载 SKILL.md 进行审查"
+    exit 1
+}
 
 # 读取并审查 SKILL.md 内容...
 # 确认无危险信号后继续
@@ -419,11 +576,12 @@ $templatesPath = Join-Path $skillPath "templates"
 New-Item -ItemType Directory -Path $skillPath -Force
 New-Item -ItemType Directory -Path $templatesPath -Force
 
-curl -sL "$rawBase/$skillName/SKILL.md" -o "$skillPath/SKILL.md"
-curl -sL "$rawBase/$skillName/README.md" -o "$skillPath/README.md"
-curl -sL "$rawBase/$skillName/templates/Dockerfile.python-uv" -o "$templatesPath/Dockerfile.python-uv"
-curl -sL "$rawBase/$skillName/templates/Dockerfile.python-pip" -o "$templatesPath/Dockerfile.python-pip"
-curl -sL "$rawBase/$skillName/templates/Dockerfile.nodejs" -o "$templatesPath/Dockerfile.nodejs"
+# 使用智能下载函数下载所有文件
+Invoke-SmartDownload -Owner $owner -Repo $repo -Branch $branch -FilePath "$skillName/SKILL.md" -OutputPath "$skillPath/SKILL.md"
+Invoke-SmartDownload -Owner $owner -Repo $repo -Branch $branch -FilePath "$skillName/README.md" -OutputPath "$skillPath/README.md"
+Invoke-SmartDownload -Owner $owner -Repo $repo -Branch $branch -FilePath "$skillName/templates/Dockerfile.python-uv" -OutputPath "$templatesPath/Dockerfile.python-uv"
+Invoke-SmartDownload -Owner $owner -Repo $repo -Branch $branch -FilePath "$skillName/templates/Dockerfile.python-pip" -OutputPath "$templatesPath/Dockerfile.python-pip"
+Invoke-SmartDownload -Owner $owner -Repo $repo -Branch $branch -FilePath "$skillName/templates/Dockerfile.nodejs" -OutputPath "$templatesPath/Dockerfile.nodejs"
 
 # === Step 6: 记录安装 ===
 $skillsDir = Join-Path $installBasePath ".skills"
@@ -498,7 +656,7 @@ Skill: suspicious-skill
 ## 记住
 
 1. **优先使用默认路径** - 检查 `SKILL_DEFAULT_PATH` 环境变量
-2. **必须使用 curl** - 避免权限问题
+2. **使用智能下载函数** - 自动 CDN 回退，提高下载成功率
 3. **先审查后安装** - 安全第一
 4. **推荐安装 skill-vetter** - 用于审查后续 skill 的安全性
 5. **记录审计日志** - 可追溯

@@ -1,6 +1,6 @@
 ---
 name: "mcp-dockerizer"
-version: "1.0.0"
+version: "1.1.0"
 description: "将本地 MCP 服务转换为 Docker 部署。当用户想要 Docker 化 MCP 服务或在 Docker 环境中部署 MCP 时调用。"
 author: "Arthur244"
 homepage: "https://github.com/Arthur244/skills"
@@ -10,7 +10,7 @@ permissions:
     read: ["./**", "templates/**"]
     write: ["./Dockerfile", "./docker-compose.yml", "./.dockerignore"]
   network:
-    outbound: []
+    outbound: ["raw.githubusercontent.com:443", "cdn.jsdelivr.net:443"]
   commands: ["docker", "docker-compose"]
   env_vars: []
 dependencies:
@@ -38,9 +38,54 @@ security:
 
 2. **如果模板文件不存在，自动下载模板文件**：
 
-   **使用智能链接策略下载模板文件**：
+   **使用智能下载函数（支持 CDN 自动回退）**：
    
    ```powershell
+   # 智能下载函数（支持 CDN 回退）
+   function Invoke-SmartDownload {
+       param(
+           [string]$Owner,
+           [string]$Repo,
+           [string]$Branch,
+           [string]$FilePath,
+           [string]$OutputPath
+       )
+       
+       # 构建下载源列表（按优先级）
+       $sources = @(
+           @{
+               Name = "GitHub Raw"
+               Url = "https://raw.githubusercontent.com/$Owner/$Repo/refs/heads/$Branch/$FilePath"
+           },
+           @{
+               Name = "jsDelivr CDN"
+               Url = "https://cdn.jsdelivr.net/gh/$Owner@$Repo@$Branch/$FilePath"
+           }
+       )
+       
+       foreach ($source in $sources) {
+           Write-Host "  尝试从 $($source.Name) 下载..." -NoNewline
+           
+           try {
+               $result = curl -sL --connect-timeout 10 --max-time 30 "$($source.Url)" -o "$OutputPath" 2>&1
+               
+               if ((Test-Path $OutputPath) -and ((Get-Item $OutputPath).Length -gt 0)) {
+                   Write-Host " ✓ 成功"
+                   return $true
+               } else {
+                   Write-Host " ✗ 失败（空文件）"
+                   continue
+               }
+           } catch {
+               Write-Host " ✗ 失败（$($_.Exception.Message)）"
+               continue
+           }
+       }
+       
+       Write-Host "  ❌ 所有下载源均失败"
+       return $false
+   }
+   
    # 设置模板文件列表
    $templates = @(
        "Dockerfile.python-uv",
@@ -51,62 +96,49 @@ security:
    # 创建 templates 目录
    New-Item -ItemType Directory -Path "./templates" -Force | Out-Null
    
-   # 固化后备链接（确保始终可用）
-   $fallbackRawBase = "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp-dockerizer/templates"
+   # 确定下载参数（优先使用上下文，后备固化链接）
+   $downloadOwner = if ($owner) { $owner } else { "Arthur244" }
+   $downloadRepo = if ($repo) { $repo } else { "skills" }
+   $downloadBranch = if ($branch) { $branch } else { "main" }
    
-   # 尝试从上下文构建链接（优先使用当前仓库信息）
-   $templatesRawBase = $null
-   
-   if ($owner -and $repo -and $branch) {
-       # 从上下文构建链接
-       $contextRawBase = "https://raw.githubusercontent.com/$owner/$repo/refs/heads/$branch/mcp-dockerizer/templates"
-       
-       Write-Host "尝试从当前仓库下载模板文件..."
-       Write-Host "  仓库: $owner/$repo"
-       Write-Host "  分支: $branch"
-       
-       # 测试上下文链接是否可用
-       $testUrl = "$contextRawBase/Dockerfile.python-uv"
-       try {
-           $response = curl -sI "$testUrl" 2>$null
-           if ($response -match "HTTP.*200") {
-               $templatesRawBase = $contextRawBase
-               Write-Host "✓ 从当前仓库下载模板文件"
-           }
-       } catch {
-           Write-Host "⚠ 当前仓库中未找到模板文件"
-       }
-   }
-   
-   # 如果上下文链接不可用，使用固化链接
-   if (-not $templatesRawBase) {
-       Write-Host "使用官方仓库下载模板文件..."
-       $templatesRawBase = $fallbackRawBase
-   }
-   
-   Write-Host ""
-   Write-Host "下载地址: $templatesRawBase"
+   Write-Host "下载模板文件..."
+   Write-Host "  仓库: $downloadOwner/$downloadRepo"
+   Write-Host "  分支: $downloadBranch"
    Write-Host ""
    
    # 下载所有模板文件
+   $allSuccess = $true
    foreach ($template in $templates) {
-       $url = "$templatesRawBase/$template"
-       $output = "./templates/$template"
-       
        Write-Host "下载: $template"
-       curl -sL "$url" -o "$output"
        
-       if (Test-Path $output) {
-           Write-Host "  ✓ 成功"
-       } else {
-           Write-Host "  ✗ 失败"
+       $success = Invoke-SmartDownload `
+           -Owner $downloadOwner `
+           -Repo $downloadRepo `
+           -Branch $downloadBranch `
+           -FilePath "mcp-dockerizer/templates/$template" `
+           -OutputPath "./templates/$template"
+       
+       if (-not $success) {
+           $allSuccess = $false
        }
+   }
+   
+   if (-not $allSuccess) {
+       Write-Host ""
+       Write-Host "⚠ 部分模板文件下载失败，请参考「附录：模板文件内容」手动创建"
    }
    ```
    
+   **下载源优先级**：
+   
+   | 优先级 | 源 | 域名 | 说明 |
+   |--------|-----|------|------|
+   | 1 | GitHub Raw | `raw.githubusercontent.com` | 官方源，优先使用 |
+   | 2 | jsDelivr CDN | `cdn.jsdelivr.net` | 公共 CDN，稳定性高 |
+   
    **链接格式说明**：
-   - **上下文链接**: `https://raw.githubusercontent.com/{owner}/{repo}/refs/heads/{branch}/mcp-dockerizer/templates/{template-file}`
-   - **固化链接**: `https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp-dockerizer/templates/{template-file}`
+   - **GitHub Raw**: `https://raw.githubusercontent.com/{owner}/{repo}/refs/heads/{branch}/mcp-dockerizer/templates/{template-file}`
+   - **jsDelivr CDN**: `https://cdn.jsdelivr.net/gh/{owner}/{repo}@{branch}/mcp-dockerizer/templates/{template-file}`
 
    **方案 B：手动创建模板文件（备选）**
    
