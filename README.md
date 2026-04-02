@@ -98,14 +98,26 @@ https://github.com/OWNER/REPO/tree/BRANCH/skills/SKILL_NAME
 ### 方法三：使用 curl 直接下载
 
 ```powershell
-# 创建目录
-New-Item -ItemType Directory -Path "./mcp-dockerizer" -Force
+# 设置仓库信息（从上下文获取）
+$owner = "Arthur244"
+$repo = "skills"
+$branch = "main"
+$skillName = "mcp-dockerizer"
 
-# 下载 SKILL.md（使用 curl 避免 Invoke-WebRequest 权限问题）
-curl -sL "https://raw.githubusercontent.com/Arthur244/skills/main/mcp-dockerizer/SKILL.md" -o "./mcp-dockerizer/SKILL.md"
+# 构建基础 URL（智能链接策略）
+$rawBase = "https://raw.githubusercontent.com/$owner/$repo/refs/heads/$branch"
+
+# 创建目录
+New-Item -ItemType Directory -Path "./$skillName" -Force
+
+# 下载 SKILL.md（优先使用上下文链接）
+curl -sL "$rawBase/$skillName/SKILL.md" -o "./$skillName/SKILL.md"
 
 # 下载 README.md
-curl -sL "https://raw.githubusercontent.com/Arthur244/skills/main/mcp-dockerizer/README.md" -o "./mcp-dockerizer/README.md"
+curl -sL "$rawBase/$skillName/README.md" -o "./$skillName/README.md"
+
+# 如果上下文链接失败，使用固化链接作为后备：
+# curl -sL "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp-dockerizer/SKILL.md" -o "./mcp-dockerizer/SKILL.md"
 ```
 
 ## 仓库结构
@@ -240,11 +252,23 @@ AI 工具会自动读取 `skills-index.json` 发现可用的 skill。
 ### 程序化访问
 
 ```bash
-# 获取索引
-curl -s https://raw.githubusercontent.com/Arthur244/skills/main/skills-index.json
+# 设置仓库信息（从上下文获取）
+owner="Arthur244"
+repo="skills"
+branch="main"
+
+# 构建基础 URL（智能链接策略）
+rawBase="https://raw.githubusercontent.com/$owner/$repo/refs/heads/$branch"
+
+# 获取索引（优先使用上下文链接）
+curl -s "$rawBase/skills-index.json"
 
 # 获取指定 skill 的元数据
-curl -s https://raw.githubusercontent.com/Arthur244/skills/main/mcp-dockerizer/SKILL.md
+curl -s "$rawBase/mcp-dockerizer/SKILL.md"
+
+# 如果上下文链接失败，使用固化链接作为后备：
+# curl -s https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skills-index.json
+# curl -s https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp-dockerizer/SKILL.md
 ```
 
 ## 相关链接

@@ -36,17 +36,81 @@ security:
      - `templates/Dockerfile.python-pip`
      - `templates/Dockerfile.nodejs`
 
-2. **如果模板文件不存在，必须执行以下操作之一**：
+2. **如果模板文件不存在，自动下载模板文件**：
 
-   **方案 A（推荐）：下载完整 skill**
-   ```
-   请从以下地址下载完整的 skill（包含 templates 文件夹）：
-   https://github.com/Arthur244/skills/tree/main/mcp-dockerizer
-   ```
-
-   **方案 B：手动创建模板文件**
+   **使用智能链接策略下载模板文件**：
    
-   如果无法下载，请根据本文件中「附录：模板文件内容」部分的内容，手动创建以下文件：
+   ```powershell
+   # 设置模板文件列表
+   $templates = @(
+       "Dockerfile.python-uv",
+       "Dockerfile.python-pip",
+       "Dockerfile.nodejs"
+   )
+   
+   # 创建 templates 目录
+   New-Item -ItemType Directory -Path "./templates" -Force | Out-Null
+   
+   # 固化后备链接（确保始终可用）
+   $fallbackRawBase = "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp-dockerizer/templates"
+   
+   # 尝试从上下文构建链接（优先使用当前仓库信息）
+   $templatesRawBase = $null
+   
+   if ($owner -and $repo -and $branch) {
+       # 从上下文构建链接
+       $contextRawBase = "https://raw.githubusercontent.com/$owner/$repo/refs/heads/$branch/mcp-dockerizer/templates"
+       
+       Write-Host "尝试从当前仓库下载模板文件..."
+       Write-Host "  仓库: $owner/$repo"
+       Write-Host "  分支: $branch"
+       
+       # 测试上下文链接是否可用
+       $testUrl = "$contextRawBase/Dockerfile.python-uv"
+       try {
+           $response = curl -sI "$testUrl" 2>$null
+           if ($response -match "HTTP.*200") {
+               $templatesRawBase = $contextRawBase
+               Write-Host "✓ 从当前仓库下载模板文件"
+           }
+       } catch {
+           Write-Host "⚠ 当前仓库中未找到模板文件"
+       }
+   }
+   
+   # 如果上下文链接不可用，使用固化链接
+   if (-not $templatesRawBase) {
+       Write-Host "使用官方仓库下载模板文件..."
+       $templatesRawBase = $fallbackRawBase
+   }
+   
+   Write-Host ""
+   Write-Host "下载地址: $templatesRawBase"
+   Write-Host ""
+   
+   # 下载所有模板文件
+   foreach ($template in $templates) {
+       $url = "$templatesRawBase/$template"
+       $output = "./templates/$template"
+       
+       Write-Host "下载: $template"
+       curl -sL "$url" -o "$output"
+       
+       if (Test-Path $output) {
+           Write-Host "  ✓ 成功"
+       } else {
+           Write-Host "  ✗ 失败"
+       }
+   }
+   ```
+   
+   **链接格式说明**：
+   - **上下文链接**: `https://raw.githubusercontent.com/{owner}/{repo}/refs/heads/{branch}/mcp-dockerizer/templates/{template-file}`
+   - **固化链接**: `https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp-dockerizer/templates/{template-file}`
+
+   **方案 B：手动创建模板文件（备选）**
+   
+   如果自动下载失败，请根据本文件中「附录：模板文件内容」部分的内容，手动创建以下文件：
    - `templates/Dockerfile.python-uv`
    - `templates/Dockerfile.python-pip`
    - `templates/Dockerfile.nodejs`

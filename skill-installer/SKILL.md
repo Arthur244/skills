@@ -123,13 +123,52 @@ if (-not (Test-Path $vetterPath)) {
         Write-Host "=========================================="
         Write-Host ""
         
-        # skill-vetter 下载链接
-        $vetterUrl = "https://github.com/Arthur244/skills/tree/main/skill-vetter"
-        $vetterRawBase = "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter"
-        
         # 创建 skill-vetter 目录
         $vetterDir = Join-Path $installBasePath "skill-vetter"
         New-Item -ItemType Directory -Path $vetterDir -Force | Out-Null
+        
+        # 固化后备链接（确保始终可用）
+        $fallbackRawBase = "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter"
+        $fallbackUrl = "https://github.com/Arthur244/skills/tree/main/skill-vetter"
+        
+        # 尝试从上下文构建链接（优先使用当前仓库信息）
+        $vetterRawBase = $null
+        $vetterUrl = $null
+        
+        if ($owner -and $repo -and $branch) {
+            # 从上下文构建链接
+            $contextRawBase = "https://raw.githubusercontent.com/$owner/$repo/refs/heads/$branch/skill-vetter"
+            $contextUrl = "https://github.com/$owner/$repo/tree/$branch/skill-vetter"
+            
+            Write-Host "尝试从当前仓库下载 skill-vetter..."
+            Write-Host "  仓库: $owner/$repo"
+            Write-Host "  分支: $branch"
+            Write-Host ""
+            
+            # 测试上下文链接是否可用
+            $testUrl = "$contextRawBase/SKILL.md"
+            try {
+                $response = curl -sI "$testUrl" 2>$null
+                if ($response -match "HTTP.*200") {
+                    $vetterRawBase = $contextRawBase
+                    $vetterUrl = $contextUrl
+                    Write-Host "✓ 从当前仓库下载"
+                }
+            } catch {
+                Write-Host "⚠ 当前仓库中未找到 skill-vetter"
+            }
+        }
+        
+        # 如果上下文链接不可用，使用固化链接
+        if (-not $vetterRawBase) {
+            Write-Host "使用官方仓库下载 skill-vetter..."
+            $vetterRawBase = $fallbackRawBase
+            $vetterUrl = $fallbackUrl
+        }
+        
+        Write-Host ""
+        Write-Host "下载地址: $vetterRawBase"
+        Write-Host ""
         
         # 下载 SKILL.md
         curl -sL "$vetterRawBase/SKILL.md" -o "$vetterDir/SKILL.md"
@@ -186,10 +225,26 @@ if (-not (Test-Path $vetterPath)) {
 }
 ```
 
-**内置下载链接**：
-- **skill-vetter GitHub 页面**: `https://github.com/Arthur244/skills/tree/main/skill-vetter`
-- **SKILL.md 原始文件**: `https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter/SKILL.md`
-- **README.md 原始文件**: `https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter/README.md`
+**下载链接策略**：
+
+skill-vetter 的下载采用智能链接策略：
+
+1. **优先从上下文构建链接**：
+   - 如果当前正在从某个仓库安装 skill，会尝试从同一仓库下载 skill-vetter
+   - 使用 `$owner/$repo/$branch` 等上下文信息构建链接
+   - 自动测试链接可用性
+
+2. **固化后备链接**：
+   - 如果上下文链接不可用，使用官方仓库的固化链接
+   - **GitHub 页面**: `https://github.com/Arthur244/skills/tree/main/skill-vetter`
+   - **SKILL.md 原始文件**: `https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter/SKILL.md`
+   - **README.md 原始文件**: `https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter/README.md`
+
+**链接格式**：
+```
+上下文链接: https://raw.githubusercontent.com/{owner}/{repo}/refs/heads/{branch}/skill-vetter/SKILL.md
+固化链接:   https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter/SKILL.md
+```
 
 **为什么需要 skill-vetter？**
 - 🔒 **安全第一** - 在安装未知来源的 skill 前进行安全检查
@@ -330,18 +385,26 @@ if ($defaultSkillPath) {
 
 # === Step 1: 解析 URL ===
 # owner=Arthur244, repo=skills, branch=main, skill_name=mcp-dockerizer
+$owner = "Arthur244"
+$repo = "skills"
+$branch = "main"
+$skillName = "mcp-dockerizer"
+
+# 构建基础 URL（从上下文）
+$rawBase = "https://raw.githubusercontent.com/$owner/$repo/refs/heads/$branch"
 
 # === Step 2: 推荐安装安全审查工具 ===
 # 检查是否已安装 skill-vetter，如未安装则提示用户安装
 $vetterPath = Join-Path $installBasePath "skill-vetter/SKILL.md"
 if (-not (Test-Path $vetterPath)) {
     # 提示用户安装 skill-vetter...
+    # 使用智能链接策略：优先上下文链接，后备固化链接
 }
 
 # === Step 3: 安全审查 ===
 $cachePath = Join-Path $installBasePath ".skills/cache"
 New-Item -ItemType Directory -Path $cachePath -Force
-curl -sL "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp-dockerizer/SKILL.md" -o "$cachePath/mcp-dockerizer.SKILL.md"
+curl -sL "$rawBase/$skillName/SKILL.md" -o "$cachePath/$skillName.SKILL.md"
 
 # 读取并审查 SKILL.md 内容...
 # 确认无危险信号后继续
@@ -350,17 +413,17 @@ curl -sL "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp
 # 从 GitHub API 或已知结构获取文件列表
 
 # === Step 5: 执行安装 ===
-$skillPath = Join-Path $installBasePath "mcp-dockerizer"
+$skillPath = Join-Path $installBasePath $skillName
 $templatesPath = Join-Path $skillPath "templates"
 
 New-Item -ItemType Directory -Path $skillPath -Force
 New-Item -ItemType Directory -Path $templatesPath -Force
 
-curl -sL "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp-dockerizer/SKILL.md" -o "$skillPath/SKILL.md"
-curl -sL "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp-dockerizer/README.md" -o "$skillPath/README.md"
-curl -sL "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp-dockerizer/templates/Dockerfile.python-uv" -o "$templatesPath/Dockerfile.python-uv"
-curl -sL "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp-dockerizer/templates/Dockerfile.python-pip" -o "$templatesPath/Dockerfile.python-pip"
-curl -sL "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/mcp-dockerizer/templates/Dockerfile.nodejs" -o "$templatesPath/Dockerfile.nodejs"
+curl -sL "$rawBase/$skillName/SKILL.md" -o "$skillPath/SKILL.md"
+curl -sL "$rawBase/$skillName/README.md" -o "$skillPath/README.md"
+curl -sL "$rawBase/$skillName/templates/Dockerfile.python-uv" -o "$templatesPath/Dockerfile.python-uv"
+curl -sL "$rawBase/$skillName/templates/Dockerfile.python-pip" -o "$templatesPath/Dockerfile.python-pip"
+curl -sL "$rawBase/$skillName/templates/Dockerfile.nodejs" -o "$templatesPath/Dockerfile.nodejs"
 
 # === Step 6: 记录安装 ===
 $skillsDir = Join-Path $installBasePath ".skills"

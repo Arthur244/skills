@@ -106,6 +106,10 @@ export SKILL_DEFAULT_PATH="/home/user/skills"
 - GitHub: `https://github.com/Arthur244/skills/tree/main/skill-vetter`
 - 直接下载: `https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter/SKILL.md`
 
+**智能下载策略**：
+1. **优先从上下文获取** - 如果正在从某个仓库安装 skill，会尝试从同一仓库下载 skill-vetter
+2. **固化链接后备** - 如果上下文链接不可用，使用官方仓库的固化链接确保可用性
+
 **为什么需要安装？**
 - 没有安全审查工具，您可能会安装恶意 skill
 - skill-vetter 可以帮助识别潜在的安全风险

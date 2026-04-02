@@ -24,10 +24,16 @@
 https://github.com/Arthur244/skills/tree/main/mcp-dockerizer
 ```
 
-### 方式二：仅 SKILL.md
+### 方式二：仅 SKILL.md（自动下载模板）
 
-如果只下载 SKILL.md 文件，skill 会在执行时检测模板文件是否存在：
-- 若不存在，会提示下载完整 skill 或根据 SKILL.md 附录内容手动创建模板文件
+如果只下载 SKILL.md 文件，skill 会在执行时自动检测模板文件：
+
+**智能模板下载策略**：
+1. **检查模板文件** - 检测 `templates/` 目录和模板文件是否存在
+2. **自动下载** - 如果模板文件不存在，使用智能链接策略自动下载：
+   - **优先从上下文获取** - 如果正在从某个仓库安装，会尝试从同一仓库下载模板
+   - **固化链接后备** - 如果上下文链接不可用，使用官方仓库的固化链接
+3. **手动创建备选** - 如果自动下载失败，可根据 SKILL.md 附录内容手动创建
 
 ### 模板文件检查清单
 
@@ -36,7 +42,7 @@ https://github.com/Arthur244/skills/tree/main/mcp-dockerizer
 - [ ] `templates/Dockerfile.python-pip`
 - [ ] `templates/Dockerfile.nodejs`
 
-**只有当以上所有文件都存在时，才能正常使用此 skill。**
+**模板文件可以自动下载，无需手动创建。**
 
 ## 使用方法
 
@@ -50,7 +56,7 @@ https://github.com/Arthur244/skills/tree/main/mcp-dockerizer
 
 ### 工作流程
 
-1. **前置检查** - 检查模板文件是否存在
+1. **前置检查** - 检查模板文件是否存在，如不存在则自动下载
 2. **分析 MCP 服务** - 识别运行时、依赖、环境变量等
 3. **确定运行时需求** - 包管理器、端口、卷挂载等
 4. **生成 Docker 配置** - 基于模板生成 Dockerfile、docker-compose.yml 等
