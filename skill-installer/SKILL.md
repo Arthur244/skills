@@ -185,10 +185,18 @@ URL 格式: https://github.com/OWNER/REPO/tree/BRANCH/SKILL_NAME
 **重要提示：在安全审查之前，强烈建议先安装 `skill-vetter` 用于审查 skill 的安全性！**
 
 ```powershell
+# 初始化安全审查能力标志
+$script:hasSecurityVetter = $false
+
 # 检查是否已安装 skill-vetter
 $vetterPath = Join-Path $installBasePath "skill-vetter/SKILL.md"
 
-if (-not (Test-Path $vetterPath)) {
+if (Test-Path $vetterPath) {
+    $script:hasSecurityVetter = $true
+    Write-Host ""
+    Write-Host "✅ 检测到已安装 skill-vetter，可以继续安全审查。"
+    Write-Host ""
+} else {
     Write-Host ""
     Write-Host "╔══════════════════════════════════════════════════════════════════╗"
     Write-Host "║                                                                  ║"
@@ -206,11 +214,26 @@ if (-not (Test-Path $vetterPath)) {
     Write-Host "║                                                                  ║"
     Write-Host "╚══════════════════════════════════════════════════════════════════╝"
     Write-Host ""
-    Write-Host "是否现在安装 skill-vetter?"
+    Write-Host "是否现在安装 skill-vetter? (等待30秒，无响应则跳过)"
     Write-Host ""
-    $installVetter = Read-Host "请输入 Y 确认安装，或输入 N 跳过 (Y/n)"
     
-    if ($installVetter -ne 'n' -and $installVetter -ne 'N') {
+    # 使用异步方式等待用户输入，30秒超时
+    $installVetter = $null
+    $job = Start-Job -ScriptBlock {
+        $input = Read-Host "请输入 Y 确认安装，或输入 N 跳过 (Y/n)"
+        return $input
+    }
+    
+    # 等待30秒
+    if (Wait-Job $job -Timeout 30) {
+        $installVetter = Receive-Job $job
+    } else {
+        Write-Host ""
+        Write-Host "⏱️  30秒内未收到响应，自动跳过安装 skill-vetter"
+    }
+    Remove-Job $job -Force -ErrorAction SilentlyContinue
+    
+    if ($installVetter -and $installVetter -ne 'n' -and $installVetter -ne 'N') {
         Write-Host ""
         Write-Host "=========================================="
         Write-Host "  正在安装 skill-vetter..."
@@ -221,71 +244,34 @@ if (-not (Test-Path $vetterPath)) {
         $vetterDir = Join-Path $installBasePath "skill-vetter"
         New-Item -ItemType Directory -Path $vetterDir -Force | Out-Null
         
-        # 固化后备链接（确保始终可用）
-        $fallbackRawBase = "https://raw.githubusercontent.com/Arthur244/skills/refs/heads/main/skill-vetter"
-        $fallbackUrl = "https://github.com/Arthur244/skills/tree/main/skill-vetter"
+        # 确定下载参数
+        $downloadOwner = if ($owner) { $owner } else { "Arthur244" }
+        $downloadRepo = if ($repo) { $repo } else { "skills" }
+        $downloadBranch = if ($branch) { $branch } else { "main" }
         
-        # 尝试从上下文构建链接（优先使用当前仓库信息）
-        $vetterRawBase = $null
-        $vetterUrl = $null
-        
-        if ($owner -and $repo -and $branch) {
-            # 从上下文构建链接
-            $contextRawBase = "https://raw.githubusercontent.com/$owner/$repo/refs/heads/$branch/skill-vetter"
-            $contextUrl = "https://github.com/$owner/$repo/tree/$branch/skill-vetter"
-            
-            Write-Host "尝试从当前仓库下载 skill-vetter..."
-            Write-Host "  仓库: $owner/$repo"
-            Write-Host "  分支: $branch"
-            Write-Host ""
-            
-            # 测试上下文链接是否可用
-            $testUrl = "$contextRawBase/SKILL.md"
-            try {
-                $response = curl -sI "$testUrl" 2>$null
-                if ($response -match "HTTP.*200") {
-                    $vetterRawBase = $contextRawBase
-                    $vetterUrl = $contextUrl
-                    Write-Host "✓ 从当前仓库下载"
-                }
-            } catch {
-                Write-Host "⚠ 当前仓库中未找到 skill-vetter"
-            }
-        }
-        
-        # 如果上下文链接不可用，使用固化链接
-        if (-not $vetterRawBase) {
-            Write-Host "使用官方仓库下载 skill-vetter..."
-            $vetterRawBase = $fallbackRawBase
-            $vetterUrl = $fallbackUrl
-        }
-        
-        Write-Host ""
-        Write-Host "下载地址: $vetterRawBase"
+        Write-Host "下载模板文件..."
+        Write-Host "  仓库: $downloadOwner/$downloadRepo"
+        Write-Host "  分支: $downloadBranch"
         Write-Host ""
         
         # 下载 SKILL.md（使用智能下载函数）
-        # 从 URL 中提取 owner, repo, branch
-        $vetterOwner = if ($vetterRawBase -match "githubusercontent\.com/([^/]+)/") { $matches[1] } else { "Arthur244" }
-        $vetterRepo = if ($vetterRawBase -match "githubusercontent\.com/[^/]+/([^/]+)/") { $matches[1] } else { "skills" }
-        $vetterBranch = if ($vetterRawBase -match "/refs/heads/([^/]+)/") { $matches[1] } else { "main" }
-        
-        Invoke-SmartDownload `
-            -Owner $vetterOwner `
-            -Repo $vetterRepo `
-            -Branch $vetterBranch `
+        $result = Invoke-SmartDownload `
+            -Owner $downloadOwner `
+            -Repo $downloadRepo `
+            -Branch $downloadBranch `
             -FilePath "skill-vetter/SKILL.md" `
             -OutputPath "$vetterDir/SKILL.md"
         
         # 下载 README.md
         Invoke-SmartDownload `
-            -Owner $vetterOwner `
-            -Repo $vetterRepo `
-            -Branch $vetterBranch `
+            -Owner $downloadOwner `
+            -Repo $downloadRepo `
+            -Branch $downloadBranch `
             -FilePath "skill-vetter/README.md" `
             -OutputPath "$vetterDir/README.md"
         
         if (Test-Path "$vetterDir/SKILL.md") {
+            $script:hasSecurityVetter = $true
             Write-Host ""
             Write-Host "╔══════════════════════════════════════════════════════════════════╗"
             Write-Host "║                                                                  ║"
@@ -303,7 +289,8 @@ if (-not (Test-Path $vetterPath)) {
             Write-Host "║                                                                  ║"
             Write-Host "║  ❌ skill-vetter 安装失败                                        ║"
             Write-Host "║                                                                  ║"
-            Write-Host "║  请手动安装: $vetterUrl"
+            Write-Host "║  将跳过安全审查步骤，请手动安装后重新运行。                      ║"
+            Write-Host "║  URL: https://github.com/Arthur244/skills/tree/main/skill-vetter ║"
             Write-Host "║                                                                  ║"
             Write-Host "╚══════════════════════════════════════════════════════════════════╝"
             Write-Host ""
@@ -314,23 +301,14 @@ if (-not (Test-Path $vetterPath)) {
         Write-Host "║                                                                  ║"
         Write-Host "║  ⚠️  您已选择跳过安装 skill-vetter                               ║"
         Write-Host "║                                                                  ║"
-        Write-Host "║  请注意：没有 skill-vetter，您将无法充分审查 skill 的安全性！    ║"
+        Write-Host "║  后续将跳过安全审查步骤，无法评估 skill 安全性！                 ║"
         Write-Host "║                                                                  ║"
         Write-Host "║  稍后您可以手动安装：                                            ║"
         Write-Host "║  URL: https://github.com/Arthur244/skills/tree/main/skill-vetter ║"
         Write-Host "║                                                                  ║"
-        Write-Host "║  或使用命令：                                                    ║"
-        Write-Host "║  curl -sL 'https://raw.githubusercontent.com/Arthur244/skills/   ║"
-        Write-Host "║  refs/heads/main/skill-vetter/SKILL.md' -o './skill-vetter/      ║"
-        Write-Host "║  SKILL.md'                                                       ║"
-        Write-Host "║                                                                  ║"
         Write-Host "╚══════════════════════════════════════════════════════════════════╝"
         Write-Host ""
     }
-} else {
-    Write-Host ""
-    Write-Host "✅ 检测到已安装 skill-vetter，可以继续安全审查。"
-    Write-Host ""
 }
 ```
 
@@ -367,26 +345,112 @@ CDN 回退:   https://cdn.jsdelivr.net/gh/Arthur244/skills@main/skill-vetter/SKI
 - 📊 **权限分析** - 分析 skill 所需的权限范围
 - ⚠️ **风险分级** - 对 skill 进行风险等级分类
 
-### Step 3: 安全审查（必须）
+### Step 3: 安全审查
 
-**先下载 SKILL.md 进行审查**：
+**检查安全审查能力并执行审查**：
 
 ```powershell
-# 创建临时目录
-$cachePath = Join-Path $installBasePath ".skills/cache"
-New-Item -ItemType Directory -Path $cachePath -Force
+# 检查是否有安全审查能力
+if ($script:hasSecurityVetter) {
+    # 有 skill-vetter，执行安全审查
+    Write-Host ""
+    Write-Host "=========================================="
+    Write-Host "  执行安全审查..."
+    Write-Host "=========================================="
+    Write-Host ""
+    
+    # 创建临时目录
+    $cachePath = Join-Path $installBasePath ".skills/cache"
+    New-Item -ItemType Directory -Path $cachePath -Force
 
-# 下载 SKILL.md 进行审查（使用智能下载函数，自动 CDN 回退）
-$downloaded = Invoke-SmartDownload `
-    -Owner "OWNER" `
-    -Repo "REPO" `
-    -Branch "BRANCH" `
-    -FilePath "SKILL_NAME/SKILL.md" `
-    -OutputPath "$cachePath/SKILL_NAME.SKILL.md"
+    # 下载 SKILL.md 进行审查（使用智能下载函数，自动 CDN 回退）
+    $downloaded = Invoke-SmartDownload `
+        -Owner "OWNER" `
+        -Repo "REPO" `
+        -Branch "BRANCH" `
+        -FilePath "SKILL_NAME/SKILL.md" `
+        -OutputPath "$cachePath/SKILL_NAME.SKILL.md"
 
-if (-not $downloaded) {
-    Write-Host "❌ 无法下载 SKILL.md，请检查网络连接"
-    exit 1
+    if (-not $downloaded) {
+        Write-Host "❌ 无法下载 SKILL.md，请检查网络连接"
+        exit 1
+    }
+    
+    # 读取并审查 SKILL.md 内容
+    $skillContent = Get-Content "$cachePath/SKILL_NAME.SKILL.md" -Raw
+    
+    # 执行安全审查检查清单
+    $securityIssues = @()
+    
+    # 检查敏感目录访问
+    if ($skillContent -match '~/.ssh|~/.aws|~/.config') {
+        $securityIssues += "访问敏感目录（~/.ssh、~/.aws、~/.config）"
+    }
+    
+    # 检查敏感文件访问
+    if ($skillContent -match 'MEMORY\.md|USER\.md|SOUL\.md|IDENTITY\.md') {
+        $securityIssues += "访问敏感文件（MEMORY.md、USER.md 等）"
+    }
+    
+    # 检查外部数据发送
+    if ($skillContent -match 'Invoke-WebRequest|curl.*-X.*POST|HttpClient') {
+        $securityIssues += "可能向外部服务器发送数据"
+    }
+    
+    # 检查凭据请求
+    if ($skillContent -match 'credential|token|api.key|password|secret') {
+        $securityIssues += "请求凭据/令牌/API 密钥"
+    }
+    
+    # 检查代码混淆
+    if ($skillContent -match 'base64|eval\(|exec\(|Invoke-Expression') {
+        $securityIssues += "可能包含混淆或动态执行代码"
+    }
+    
+    # 检查权限提升
+    if ($skillContent -match 'sudo|runas|Administrator') {
+        $securityIssues += "请求提升权限"
+    }
+    
+    # 输出审查结果
+    if ($securityIssues.Count -gt 0) {
+        Write-Host ""
+        Write-Host "╔══════════════════════════════════════════════════════════════════╗"
+        Write-Host "║                                                                  ║"
+        Write-Host "║  🚨 安全审查发现以下问题：                                       ║"
+        Write-Host "║                                                                  ║"
+        foreach ($issue in $securityIssues) {
+            Write-Host "║  • $issue"
+        }
+        Write-Host "║                                                                  ║"
+        Write-Host "║  ⛔ 建议拒绝安装此 skill                                         ║"
+        Write-Host "║                                                                  ║"
+        Write-Host "╚══════════════════════════════════════════════════════════════════╝"
+        Write-Host ""
+        exit 1
+    } else {
+        Write-Host "✅ 安全审查通过，未发现明显安全问题"
+    }
+} else {
+    # 没有 skill-vetter，跳过安全审查
+    Write-Host ""
+    Write-Host "╔══════════════════════════════════════════════════════════════════╗"
+    Write-Host "║                                                                  ║"
+    Write-Host "║  ⚠️  安全审查能力缺失                                            ║"
+    Write-Host "║                                                                  ║"
+    Write-Host "║  未安装 skill-vetter，无法执行安全审查。                         ║"
+    Write-Host "║                                                                  ║"
+    Write-Host "║  ⚠️  警告：无法评估此 skill 的安全性！                           ║"
+    Write-Host "║                                                                  ║"
+    Write-Host "║  建议：                                                          ║"
+    Write-Host "║  1. 手动检查 SKILL.md 中的权限声明                               ║"
+    Write-Host "║  2. 确认 skill 来源可信                                          ║"
+    Write-Host "║  3. 安装 skill-vetter 后重新审查                                 ║"
+    Write-Host "║                                                                  ║"
+    Write-Host "╚══════════════════════════════════════════════════════════════════╝"
+    Write-Host ""
+    Write-Host "⏭️  跳过安全审查步骤，继续安装流程..."
+    Write-Host ""
 }
 ```
 
@@ -554,32 +618,44 @@ $skillName = "mcp-dockerizer"
 $rawBase = "https://raw.githubusercontent.com/$owner/$repo/refs/heads/$branch"
 
 # === Step 2: 推荐安装安全审查工具 ===
-# 检查是否已安装 skill-vetter，如未安装则提示用户安装
+# 初始化安全审查能力标志
+$script:hasSecurityVetter = $false
+
 $vetterPath = Join-Path $installBasePath "skill-vetter/SKILL.md"
-if (-not (Test-Path $vetterPath)) {
-    # 提示用户安装 skill-vetter...
-    # 使用智能链接策略：优先上下文链接，后备固化链接
+if (Test-Path $vetterPath) {
+    $script:hasSecurityVetter = $true
+    Write-Host "✅ 检测到已安装 skill-vetter"
+} else {
+    # 提示用户安装，30秒超时
+    Write-Host "⚠ 未检测到 skill-vetter，建议安装以进行安全审查"
+    # ... 等待用户响应或超时跳过 ...
 }
 
 # === Step 3: 安全审查 ===
-$cachePath = Join-Path $installBasePath ".skills/cache"
-New-Item -ItemType Directory -Path $cachePath -Force
+if ($script:hasSecurityVetter) {
+    Write-Host "执行安全审查..."
+    $cachePath = Join-Path $installBasePath ".skills/cache"
+    New-Item -ItemType Directory -Path $cachePath -Force
 
-# 使用智能下载函数（自动 CDN 回退）
-$downloaded = Invoke-SmartDownload `
-    -Owner $owner `
-    -Repo $repo `
-    -Branch $branch `
-    -FilePath "$skillName/SKILL.md" `
-    -OutputPath "$cachePath/$skillName.SKILL.md"
+    # 使用智能下载函数（自动 CDN 回退）
+    $downloaded = Invoke-SmartDownload `
+        -Owner $owner `
+        -Repo $repo `
+        -Branch $branch `
+        -FilePath "$skillName/SKILL.md" `
+        -OutputPath "$cachePath/$skillName.SKILL.md"
 
-if (-not $downloaded) {
-    Write-Host "❌ 无法下载 SKILL.md 进行审查"
-    exit 1
+    if (-not $downloaded) {
+        Write-Host "❌ 无法下载 SKILL.md 进行审查"
+        exit 1
+    }
+
+    # 读取并审查 SKILL.md 内容...
+    # 确认无危险信号后继续
+    Write-Host "✅ 安全审查通过"
+} else {
+    Write-Host "⚠️ 跳过安全审查（缺少 skill-vetter），无法评估安全性"
 }
-
-# 读取并审查 SKILL.md 内容...
-# 确认无危险信号后继续
 
 # === Step 4: 获取文件列表 ===
 # 从 GitHub API 或已知结构获取文件列表
