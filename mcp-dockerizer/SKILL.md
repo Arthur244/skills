@@ -757,7 +757,48 @@ ENTRYPOINT ["python", "-m", "my_actual_module"]
 
 ## 附录：模板文件内容
 
-以下为模板文件的完整内容。如果 `templates/` 文件夹不存在，请根据以下内容手动创建对应的模板文件。
+以下为模板文件的完整内容。
+
+### ⚠️ 重要：模板获取优先级
+
+**请按以下优先级获取模板文件：**
+
+1. **优先使用网络下载**（推荐）
+   - 使用前文「步骤 0」中的智能下载函数从 GitHub 下载模板文件
+   - 支持 CDN 自动回退，下载成功率高
+   - 确保获取最新版本的模板
+
+2. **网络下载失败时使用预置模板**
+   - 仅当所有网络下载方式均失效时，才使用本附录中的预置模板
+   - 手动创建对应的模板文件
+
+### 模板获取流程
+
+```powershell
+# 步骤 1: 尝试网络下载（优先）
+$templates = @("Dockerfile.python-uv", "Dockerfile.python-pip", "Dockerfile.nodejs")
+$allDownloaded = $true
+
+foreach ($template in $templates) {
+    $result = Invoke-SmartDownload `
+        -Owner "Arthur244" `
+        -Repo "skills" `
+        -Branch "main" `
+        -FilePath "mcp-dockerizer/templates/$template" `
+        -OutputPath "./templates/$template" `
+        -Silent
+    
+    if (-not $result.Success) {
+        $allDownloaded = $false
+    }
+}
+
+# 步骤 2: 如果网络下载失败，使用预置模板
+if (-not $allDownloaded) {
+    Write-Host "⚠ 网络下载失败，使用预置模板创建文件"
+    # 根据本附录内容手动创建模板文件...
+}
+```
 
 ### templates/Dockerfile.python-uv
 
