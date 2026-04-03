@@ -1,6 +1,6 @@
 ---
 name: "skill-installer"
-version: "1.3.0"
+version: "1.3.1"
 description: "安全安装 GitHub 上的 skill。用户直接提供 skill 文件夹链接，AI 执行安全审查和安装。"
 author: "system"
 permissions:
@@ -531,9 +531,12 @@ Invoke-SmartDownload `
 **检查 .gitignore 并创建 .skills 目录**：
 
 ```powershell
-# 创建 .skills 目录
+# 创建 .skills 目录（确保存在）
 $skillsDir = Join-Path $installBasePath ".skills"
-New-Item -ItemType Directory -Path $skillsDir -Force
+if (-not (Test-Path $skillsDir)) {
+    New-Item -ItemType Directory -Path $skillsDir -Force | Out-Null
+    Write-Host "✓ 已创建 .skills 目录: $skillsDir"
+}
 
 # 检查 .gitignore 中是否包含 .skills/ 忽略规则
 $gitignorePath = Join-Path $installBasePath ".gitignore"
@@ -573,12 +576,13 @@ if ($needsGitignoreEntry) {
 $timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
 $auditLogPath = Join-Path $skillsDir "audit.log"
 
-# 检查日志文件是否存在，不存在则创建
+# 确保日志文件路径存在
 if (-not (Test-Path $auditLogPath)) {
-    # 确保目录存在
+    # 确保父目录存在
     $auditLogDir = Split-Path $auditLogPath -Parent
     if (-not (Test-Path $auditLogDir)) {
         New-Item -ItemType Directory -Path $auditLogDir -Force | Out-Null
+        Write-Host "✓ 已创建日志目录: $auditLogDir"
     }
     # 创建空的日志文件
     New-Item -ItemType File -Path $auditLogPath -Force | Out-Null
@@ -676,7 +680,12 @@ Invoke-SmartDownload -Owner $owner -Repo $repo -Branch $branch -FilePath "$skill
 
 # === Step 6: 记录安装 ===
 $skillsDir = Join-Path $installBasePath ".skills"
-New-Item -ItemType Directory -Path $skillsDir -Force
+
+# 确保 .skills 目录存在
+if (-not (Test-Path $skillsDir)) {
+    New-Item -ItemType Directory -Path $skillsDir -Force | Out-Null
+    Write-Host "✓ 已创建 .skills 目录: $skillsDir"
+}
 
 # 检查 .gitignore
 $gitignorePath = Join-Path $installBasePath ".gitignore"
@@ -690,13 +699,17 @@ if ((Test-Path $gitignorePath) -and ((Get-Content $gitignorePath -Raw) -match '\
 # 记录到审计日志
 $auditLogPath = Join-Path $skillsDir "audit.log"
 
-# 检查日志文件是否存在，不存在则创建
+# 确保日志文件路径存在
 if (-not (Test-Path $auditLogPath)) {
+    # 确保父目录存在
     $auditLogDir = Split-Path $auditLogPath -Parent
     if (-not (Test-Path $auditLogDir)) {
         New-Item -ItemType Directory -Path $auditLogDir -Force | Out-Null
+        Write-Host "✓ 已创建日志目录: $auditLogDir"
     }
+    # 创建空的日志文件
     New-Item -ItemType File -Path $auditLogPath -Force | Out-Null
+    Write-Host "✓ 已创建审计日志文件: $auditLogPath"
 }
 
 "[2026-04-01T19:00:00Z] INSTALL mcp-dockerizer@1.0.0 source=https://github.com/Arthur244/skills/tree/main/mcp-dockerizer risk=medium approved=user" | Add-Content $auditLogPath
