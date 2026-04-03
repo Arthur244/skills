@@ -508,7 +508,22 @@ if ($needsGitignoreEntry) {
 # 记录到审计日志
 $timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
 $auditLogPath = Join-Path $skillsDir "audit.log"
+
+# 检查日志文件是否存在，不存在则创建
+if (-not (Test-Path $auditLogPath)) {
+    # 确保目录存在
+    $auditLogDir = Split-Path $auditLogPath -Parent
+    if (-not (Test-Path $auditLogDir)) {
+        New-Item -ItemType Directory -Path $auditLogDir -Force | Out-Null
+    }
+    # 创建空的日志文件
+    New-Item -ItemType File -Path $auditLogPath -Force | Out-Null
+    Write-Host "✓ 已创建审计日志文件: $auditLogPath"
+}
+
+# 写入日志
 "[$timestamp] INSTALL $skillName@VERSION source=URL risk=LEVEL approved=user" | Add-Content $auditLogPath
+Write-Host "✓ 已记录安装信息到审计日志"
 ```
 
 ## 完整安装示例
@@ -596,8 +611,20 @@ if ((Test-Path $gitignorePath) -and ((Get-Content $gitignorePath -Raw) -match '\
     # 询问用户是否添加...
 }
 
+# 记录到审计日志
 $auditLogPath = Join-Path $skillsDir "audit.log"
+
+# 检查日志文件是否存在，不存在则创建
+if (-not (Test-Path $auditLogPath)) {
+    $auditLogDir = Split-Path $auditLogPath -Parent
+    if (-not (Test-Path $auditLogDir)) {
+        New-Item -ItemType Directory -Path $auditLogDir -Force | Out-Null
+    }
+    New-Item -ItemType File -Path $auditLogPath -Force | Out-Null
+}
+
 "[2026-04-01T19:00:00Z] INSTALL mcp-dockerizer@1.0.0 source=https://github.com/Arthur244/skills/tree/main/mcp-dockerizer risk=medium approved=user" | Add-Content $auditLogPath
+Write-Host "✓ 已记录安装信息到审计日志"
 ```
 
 ## curl 命令参数说明
