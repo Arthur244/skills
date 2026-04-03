@@ -11,7 +11,7 @@ permissions:
     write: ["./Dockerfile", "./docker-compose.yml", "./.dockerignore"]
   network:
     outbound: ["raw.githubusercontent.com:443", "cdn.jsdelivr.net:443"]
-  commands: ["docker", "docker-compose"]
+  commands: ["docker", "docker-compose", "curl.exe"]
   env_vars: []
 dependencies:
   skills: []
@@ -42,23 +42,27 @@ security:
    
    ## ⚠️ 重要：下载命令规范
 
-**必须使用 `curl` 命令，禁止使用 `Invoke-WebRequest`**（避免 Windows 安全策略拦截）
+**必须使用 `curl.exe` 命令，禁止使用 `curl` 或 `Invoke-WebRequest`**（避免 Windows 安全策略拦截）
 
 ```powershell
-# ✅ 正确：使用 curl（推荐）
-curl -sL "https://raw.githubusercontent.com/OWNER/REPO/BRANCH/PATH" -o "./output.file"
+# ✅ 正确：使用 curl.exe（注意 .exe 后缀）
+curl.exe -sL "https://raw.githubusercontent.com/OWNER/REPO/BRANCH/PATH" -o "./output.file"
+
+# ❌ 错误：curl 是 Invoke-WebRequest 的别名，会触发安全提醒
+curl -sL "https://..." -o "./output.file"
 
 # ❌ 错误：Invoke-WebRequest 会触发 Windows 安全提醒
 Invoke-WebRequest -Uri "..." -OutFile "..."
 ```
 
 **原因说明**：
-- Windows 的安全策略可能会拦截 `Invoke-WebRequest` 对外部脚本的下载
-- `curl` 是跨平台工具，不受此限制
+- PowerShell 中 `curl` 是 `Invoke-WebRequest` 的别名，仍会触发安全策略
+- 必须使用 `curl.exe`（带 .exe 后缀）才能调用真正的 curl 程序
+- `curl.exe` 是跨平台工具，不受 Windows 安全策略限制
 - 使用 `-sL` 参数：`-s` 静默模式，`-L` 跟随重定向
 
    ```powershell
-   # 智能下载函数（支持 CDN 回退）
+   # 智能下载函数（支持 CDN 回退 + 跨平台适配）
    function Invoke-SmartDownload {
        param(
            [string]$Owner,
@@ -80,23 +84,31 @@ Invoke-WebRequest -Uri "..." -OutFile "..."
            }
        )
        
+       # 跨平台 curl 命令列表（按优先级）
+       $curlCommands = @("curl", "curl.exe")
+       
        foreach ($source in $sources) {
            Write-Host "  尝试从 $($source.Name) 下载..." -NoNewline
            
-           try {
-               $result = curl -sL --connect-timeout 10 --max-time 30 "$($source.Url)" -o "$OutputPath" 2>&1
-               
-               if ((Test-Path $OutputPath) -and ((Get-Item $OutputPath).Length -gt 0)) {
-                   Write-Host " ✓ 成功"
-                   return $true
-               } else {
-                   Write-Host " ✗ 失败（空文件）"
+           # 尝试不同的 curl 命令
+           $downloaded = $false
+           foreach ($curlCmd in $curlCommands) {
+               try {
+                   $result = & $curlCmd -sL --connect-timeout 10 --max-time 30 "$($source.Url)" -o "$OutputPath" 2>&1
+                   
+                   if ((Test-Path $OutputPath) -and ((Get-Item $OutputPath).Length -gt 0)) {
+                       Write-Host " ✓ 成功"
+                       return $true
+                   }
+               } catch {
+                   # 当前 curl 命令失败，尝试下一个
                    continue
                }
-           } catch {
-               Write-Host " ✗ 失败（$($_.Exception.Message)）"
-               continue
            }
+           
+           # 所有 curl 命令都失败
+           Write-Host " ✗ 失败"
+           continue
        }
        
        Write-Host "  ❌ 所有下载源均失败"
@@ -715,10 +727,10 @@ docker images mcp-service:latest
 **使用示例**：
 ```powershell
 # 下载单个文件
-curl -sL "https://raw.githubusercontent.com/Arthur244/skills/main/mcp-dockerizer/templates/Dockerfile.python-uv" -o "./templates/Dockerfile.python-uv"
+curl.exe -sL "https://raw.githubusercontent.com/Arthur244/skills/main/mcp-dockerizer/templates/Dockerfile.python-uv" -o "./templates/Dockerfile.python-uv"
 
 # 带超时设置
-curl -sL --connect-timeout 10 --max-time 30 "https://cdn.jsdelivr.net/gh/Arthur244/skills@main/mcp-dockerizer/templates/Dockerfile.python-uv" -o "./templates/Dockerfile.python-uv"
+curl.exe -sL --connect-timeout 10 --max-time 30 "https://cdn.jsdelivr.net/gh/Arthur244/skills@main/mcp-dockerizer/templates/Dockerfile.python-uv" -o "./templates/Dockerfile.python-uv"
 ```
 
 ## ⚠️ 模板合规性总结
@@ -810,7 +822,7 @@ ENTRYPOINT ["python", "-m", "my_actual_module"]
 
 ### 模板获取流程
 
-**⚠️ 重要提示：下载时必须使用 `curl` 命令，禁止使用 `Invoke-WebRequest`**
+**⚠️ 重要提示：下载时必须使用 `curl.exe` 命令，禁止使用 `curl` 或 `Invoke-WebRequest`**
 
 ```powershell
 # 步骤 1: 尝试网络下载（优先）
