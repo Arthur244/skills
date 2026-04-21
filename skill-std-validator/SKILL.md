@@ -1,6 +1,6 @@
 ---
 name: skill-std-validator
-description: Validates Skill folders against the official Skill standard specification. Use when user asks to "validate skill", "check skill compliance", "verify skill structure", or when creating/reviewing any Skill.
+description: Validates Skill folders against the official Skill standard specification. Use when user asks to "validate skill", "check skill compliance", "verify skill structure", "optimize skill", "format skill", "generate README", "update README", or when creating/reviewing any Skill.
 ---
 
 # Skill 标准验证器
@@ -33,15 +33,43 @@ description: Validates Skill folders against the official Skill standard specifi
 ```
 skill-name/
 ├── SKILL.md          # 必需
-├── scripts/          # 可选
-├── references/       # 可选
-└── assets/           # 可选
+├── scripts/          # 可选 - 功能脚本
+├── references/       # 可选 - 资源文档
+└── assets/           # 可选 - 静态资源
 ```
 
 **验证规则：**
 
 - [ ] SKILL.md 文件存在（区分大小写）
 - [ ] skill 文件夹内无 README.md（应仅在仓库根目录）
+
+#### 3.0 文件分类与归档（优化/格式化模式）
+
+**当用户请求"优化"或"格式化" skill 结构时，执行文件分类：**
+
+**文件分类规则：**
+
+| 文件类型 | 目标文件夹 | 说明 |
+|----------|------------|------|
+| `.ps1`, `.sh`, `.py`, `.js`, `.ts` | `scripts/` | 功能脚本文件 |
+| `.md`（非 SKILL.md） | `references/` | 文档文件 |
+| `.json`, `.yaml`, `.yml` | `references/` | 配置/数据文件 |
+| `.png`, `.jpg`, `.svg`, `.gif` | `assets/` | 图片资源 |
+| `.css`, `.scss` | `assets/` | 样式文件 |
+
+**分类流程：**
+
+1. 扫描 skill 根目录下的所有文件（排除 SKILL.md）
+2. 根据文件扩展名确定目标文件夹
+3. 如果目标文件夹不存在，创建该文件夹
+4. 将文件移动到对应的目标文件夹
+5. 更新 SKILL.md 中的文件引用路径
+
+**注意事项：**
+
+- `SKILL.md` 必须保留在根目录
+- 移动文件后需更新 SKILL.md 中的引用路径
+- 如果文件已在正确位置，跳过移动
 
 #### 3.1 文件夹命名检查与交互
 
@@ -157,6 +185,7 @@ description: <功能描述 + 触发条件>
 - [PASS/FAIL] 文件夹命名: <details>
 - [PASS/FAIL] SKILL.md 存在: <details>
 - [PASS/FAIL] 无 README.md: <details>
+- [PASS/FAIL] 文件分类: <details>（优化/格式化模式）
 
 ### YAML Frontmatter 检查
 - [PASS/FAIL] 有效 YAML: <details>
@@ -186,6 +215,121 @@ description: <功能描述 + 触发条件>
 
 ### 建议 (Recommendations)
 <列出发现的问题和修复建议>
+```
+
+### 步骤 8：生成或更新 README（可选）
+
+**当用户请求"优化"或"格式化" skill 结构时，在验证完成后询问是否需要生成/更新 README。**
+
+#### 8.1 README 存放位置
+
+根据 Skill 标准规范，README.md 应放在 `references/` 目录中：
+
+```
+skill-name/
+├── SKILL.md
+├── scripts/
+├── references/
+│   └── README.md    <- README 存放位置
+└── assets/
+```
+
+**注意**：Skill 根目录不应包含 README.md，所有面向人类的文档应放在 `references/` 目录。
+
+#### 8.2 README 生成流程
+
+1. **询问用户**：是否需要生成或更新 README？
+   - 如果用户选择"是"，继续下一步
+   - 如果用户选择"否"，跳过此步骤
+
+2. **收集信息**：从 SKILL.md 中提取以下信息：
+   - YAML frontmatter 中的 `name`、`description`、`version`、`author` 等字段
+   - SKILL.md body 中的核心功能描述
+   - 目录结构信息
+
+3. **生成 README 内容**：
+
+```markdown
+# <skill-name>
+
+<description from YAML>
+
+## 功能概述
+
+<从 SKILL.md body 提取的核心功能描述>
+
+## 目录结构
+
+```
+<skill-name>/
+├── SKILL.md          # 核心指令文件
+├── scripts/          # 功能脚本（如有）
+├── references/       # 参考文档
+│   └── README.md     # 本文档
+└── assets/           # 静态资源（如有）
+```
+
+## 使用方法
+
+<从 SKILL.md 提取的快速开始指南>
+
+## 相关链接
+
+- [SKILL.md](../SKILL.md) - 核心指令文件
+- <其他 references/ 中的文档链接>
+
+## 元信息
+
+- **版本**: <version>
+- **作者**: <author>
+- **许可证**: <license>
+```
+
+4. **写入文件**：将 README.md 写入 `references/README.md`
+   - 如果文件已存在，询问用户是否覆盖
+   - 如果 `references/` 目录不存在，先创建目录
+
+#### 8.3 README 更新逻辑
+
+如果 `references/README.md` 已存在：
+
+1. 读取现有 README 内容
+2. 比较关键信息（name、description、version）是否与 SKILL.md 一致
+3. 如果不一致，提示用户：
+   ```
+   检测到 README.md 内容与 SKILL.md 不一致：
+   - 名称: "old-name" → "new-name"
+   - 版本: "1.0.0" → "1.1.0"
+   
+   是否更新 README.md？
+   1. 更新（保留自定义内容，仅更新元信息）
+   2. 完全覆盖（重新生成）
+   3. 保持不变
+   ```
+4. 根据用户选择执行相应操作
+
+#### 8.4 README 模板变量
+
+支持以下模板变量，从 SKILL.md YAML frontmatter 中提取：
+
+| 变量 | 来源 | 说明 |
+|------|------|------|
+| `{{name}}` | YAML name | Skill 名称 |
+| `{{description}}` | YAML description | 功能描述 |
+| `{{version}}` | YAML version | 版本号（可选） |
+| `{{author}}` | YAML author | 作者（可选） |
+| `{{license}}` | YAML license | 许可证（可选） |
+| `{{homepage}}` | YAML homepage | 主页链接（可选） |
+
+#### 8.5 生成报告
+
+README 生成完成后，在验证报告中添加：
+
+```markdown
+### README 生成 (README Generation)
+- [PASS/SKIP] README 生成: <details>
+  - 如果生成：显示文件路径
+  - 如果跳过：显示用户选择跳过
 ```
 
 ## Examples
@@ -405,7 +549,68 @@ Skill follows all standard specifications. No issues found.
 ...
 ```
 
-### 示例 6：发现问题（其他项）
+### 示例 6：优化 Skill 结构（文件分类）
+
+**用户：** "优化 my-skill 的结构"
+
+**Agent：** "请问您希望使用哪种语言输出验证报告？1. 中文  2. 原语言"
+
+**用户：** "中文"
+
+**Agent：** 扫描 skill 文件夹，发现以下文件需要分类：
+
+```
+my-skill/
+├── SKILL.md
+├── validate.ps1        # 应移至 scripts/
+├── usage.md            # 应移至 references/
+├── config.json         # 应移至 references/
+└── logo.png            # 应移至 assets/
+```
+
+**响应：**
+
+```markdown
+## Skill 结构优化报告: my-skill
+
+### 文件分类操作
+
+| 文件 | 原位置 | 目标位置 | 状态 |
+|------|--------|----------|------|
+| validate.ps1 | 根目录 | scripts/ | ✅ 已移动 |
+| usage.md | 根目录 | references/ | ✅ 已移动 |
+| config.json | 根目录 | references/ | ✅ 已移动 |
+| logo.png | 根目录 | assets/ | ✅ 已移动 |
+
+### 更新后的目录结构
+
+```
+my-skill/
+├── SKILL.md
+├── scripts/
+│   └── validate.ps1
+├── references/
+│   ├── usage.md
+│   └── config.json
+└── assets/
+    └── logo.png
+```
+
+### 引用路径更新
+
+已更新 SKILL.md 中的以下引用：
+- `validate.ps1` → `scripts/validate.ps1`
+- `usage.md` → `references/usage.md`
+- `config.json` → `references/config.json`
+- `logo.png` → `assets/logo.png`
+
+### 总结
+- 移动文件: 4
+- 创建文件夹: 3
+- 更新引用: 4
+```
+
+### 示例 7：发现问题（其他项）
 
 **用户：** "检查 my-skill 是否符合标准"
 
@@ -444,6 +649,119 @@ Skill follows all standard specifications. No issues found.
 3. 改进 description: 添加功能描述 + 触发条件
    示例: "验证数据文件。当用户上传 CSV 或 JSON 文件需要验证时使用。"
 4. 将指令、示例和说明文档改为中文编写
+```
+
+### 示例 8：优化 Skill 并生成 README
+
+**用户：** "优化 my-skill 并生成 README"
+
+**Agent：** "请问您希望使用哪种语言输出验证报告？1. 中文  2. 原语言"
+
+**用户：** "中文"
+
+**Agent：** 执行优化操作后询问：
+
+```
+优化完成！是否需要生成或更新 README.md？
+1. 是，生成 README
+2. 是，更新现有 README
+3. 否，跳过
+
+请输入您的选择（1/2/3）：
+```
+
+**用户：** "1"
+
+**Agent：** 从 SKILL.md 提取信息并生成 README：
+
+**响应：**
+
+```markdown
+## Skill 结构优化报告: my-skill
+
+### 文件分类操作
+...（文件移动记录）
+
+### README 生成 (README Generation)
+- [PASS] README 生成: 已创建 references/README.md
+
+#### 生成的 README 内容预览
+
+```markdown
+# my-skill
+
+验证数据文件。当用户上传 CSV 或 JSON 文件需要验证时使用。
+
+## 功能概述
+
+本 skill 提供数据文件验证功能，支持 CSV 和 JSON 格式。
+
+## 目录结构
+
+my-skill/
+├── SKILL.md          # 核心指令文件
+├── scripts/
+│   └── validate.py   # 验证脚本
+└── references/
+    └── README.md     # 本文档
+
+## 使用方法
+
+1. 加载 skill
+2. 运行 `python scripts/validate.py --input <filename>`
+3. 查看验证结果
+
+## 相关链接
+
+- [SKILL.md](../SKILL.md) - 核心指令文件
+
+## 元信息
+
+- **版本**: 1.0.0
+- **作者**: Developer
+- **许可证**: MIT
+```
+
+### 总结
+- 移动文件: 2
+- 创建文件夹: 2
+- 生成 README: 1
+```
+
+### 示例 9：更新现有 README
+
+**用户：** "优化 my-skill 并更新 README"
+
+**Agent：** 检测到现有 README 与 SKILL.md 不一致：
+
+```
+检测到 references/README.md 内容与 SKILL.md 不一致：
+- 版本: "1.0.0" → "1.1.0"
+- 描述: "验证数据文件" → "验证数据文件并生成报告"
+
+是否更新 README.md？
+1. 更新（保留自定义内容，仅更新元信息）
+2. 完全覆盖（重新生成）
+3. 保持不变
+
+请输入您的选择（1/2/3）：
+```
+
+**用户：** "1"
+
+**响应：**
+
+```markdown
+### README 生成 (README Generation)
+- [PASS] README 更新: 已更新 references/README.md（保留自定义内容）
+
+#### 更新的字段
+- 版本: 1.0.0 → 1.1.0
+- 描述: 已更新
+
+#### 保留的自定义内容
+- 使用示例部分保持不变
+- 常见问题部分保持不变
 ```
 
 ## Troubleshooting
