@@ -11,7 +11,7 @@
     {
       "name": "skill-std-validator",
       "version": "1.0.0",
-      "description": "Validates Skill folders against the official Skill standard specification. Use when user asks to validate skill, check skill compliance, verify skill structure, or when creating/reviewing any Skill.",
+      "description": "Validates Skill folders against the official Skill standard specification. Use when user asks to validate skill, check skill compliance, verify skill structure, optimize skill, format skill, or when creating/reviewing any Skill.",
       "author": "Arthur244",
       "license": "MIT",
       "risk_level": "low",
@@ -21,7 +21,9 @@
         "standard",
         "compliance",
         "structure",
-        "yaml"
+        "yaml",
+        "optimize",
+        "format"
       ],
       "path": "skill-std-validator",
       "files": [
