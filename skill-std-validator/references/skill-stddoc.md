@@ -13,6 +13,7 @@ Skill 是连接"用户意图"和"底层工具"的智能胶水层。它教会 Age
 ```
 your-skill-name/
 ├── SKILL.md          # 必需：核心指令文件，包含 YAML 元数据
+├── README.md         # 可选：面向人类开发者的说明文档
 ├── scripts/          # 可选：可执行脚本 (Python, Bash 等)
 ├── references/       # 可选：供 Skill.md 按需读取的参考文档
 └── assets/           # 可选：用于生成结果的模板、图标等资源
@@ -22,7 +23,7 @@ your-skill-name/
 
 - **技能文件夹**：必须使用短横线命名法 (kebab-case)，例如 `notion-project-setup`。禁止使用空格、下划线或大写字母。
 - **核心文件**：必须被准确命名为 `SKILL.md`（区分大小写）。
-- **禁止 README.md**：技能文件夹内不应包含 README.md，所有面向 Claude 的文档都应在 SKILL.md 或 references/ 目录中。
+- **README.md**：可选文件，位于 skill 根目录，与 SKILL.md 同级。用于面向人类开发者的说明文档，包含 Skill 的用途、安装方法和使用示例。
 
 ## 三、核心设计原则
 

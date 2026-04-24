@@ -33,6 +33,7 @@ description: Validates Skill folders against the official Skill standard specifi
 ```
 skill-name/
 ├── SKILL.md          # 必需
+├── README.md         # 可选 - 面向人类开发者的说明文档
 ├── scripts/          # 可选 - 功能脚本
 ├── references/       # 可选 - 资源文档
 └── assets/           # 可选 - 静态资源
@@ -41,7 +42,6 @@ skill-name/
 **验证规则：**
 
 - [ ] SKILL.md 文件存在（区分大小写）
-- [ ] skill 文件夹内无 README.md（应仅在仓库根目录）
 
 #### 3.0 文件分类与归档（优化/格式化模式）
 
@@ -184,7 +184,6 @@ description: <功能描述 + 触发条件>
 ### 结构检查 (Structure Check)
 - [PASS/FAIL] 文件夹命名: <details>
 - [PASS/FAIL] SKILL.md 存在: <details>
-- [PASS/FAIL] 无 README.md: <details>
 - [PASS/FAIL] 文件分类: <details>（优化/格式化模式）
 
 ### YAML Frontmatter 检查
@@ -223,18 +222,18 @@ description: <功能描述 + 触发条件>
 
 #### 8.1 README 存放位置
 
-根据 Skill 标准规范，README.md 应放在 `references/` 目录中：
+根据 Skill 标准规范，README.md 应放在 skill 根目录，与 SKILL.md 同级：
 
 ```
 skill-name/
 ├── SKILL.md
+├── README.md         <- README 存放位置
 ├── scripts/
 ├── references/
-│   └── README.md    <- README 存放位置
 └── assets/
 ```
 
-**注意**：Skill 根目录不应包含 README.md，所有面向人类的文档应放在 `references/` 目录。
+**说明**：README.md 是可选文件，用于面向人类开发者的说明文档，包含 Skill 的用途、安装方法和使用示例。
 
 #### 8.2 README 生成流程
 
@@ -263,9 +262,9 @@ skill-name/
 ```
 <skill-name>/
 ├── SKILL.md          # 核心指令文件
+├── README.md         # 本文档
 ├── scripts/          # 功能脚本（如有）
-├── references/       # 参考文档
-│   └── README.md     # 本文档
+├── references/       # 参考文档（如有）
 └── assets/           # 静态资源（如有）
 ```
 
@@ -275,7 +274,7 @@ skill-name/
 
 ## 相关链接
 
-- [SKILL.md](../SKILL.md) - 核心指令文件
+- [SKILL.md](./SKILL.md) - 核心指令文件
 - <其他 references/ 中的文档链接>
 
 ## 元信息
@@ -285,13 +284,12 @@ skill-name/
 - **许可证**: <license>
 ```
 
-4. **写入文件**：将 README.md 写入 `references/README.md`
+4. **写入文件**：将 README.md 写入 skill 根目录
    - 如果文件已存在，询问用户是否覆盖
-   - 如果 `references/` 目录不存在，先创建目录
 
 #### 8.3 README 更新逻辑
 
-如果 `references/README.md` 已存在：
+如果根目录的 `README.md` 已存在：
 
 1. 读取现有 README 内容
 2. 比较关键信息（name、description、version）是否与 SKILL.md 一致
@@ -350,7 +348,6 @@ README 生成完成后，在验证报告中添加：
 ### 结构检查 (Structure Check)
 - [PASS] 文件夹命名: 使用 kebab-case "skill-std-validator"
 - [PASS] SKILL.md 存在: 文件位于 SKILL.md
-- [PASS] 无 README.md: skill 文件夹内无 README.md
 
 ### YAML Frontmatter 检查
 - [PASS] 有效 YAML: 正确的 --- 分隔符
@@ -392,7 +389,6 @@ Skill 符合所有标准规范。未发现问题。
 ### Structure Check
 - [PASS] Folder naming: Uses kebab-case "my-english-skill"
 - [PASS] SKILL.md exists: File found at SKILL.md
-- [PASS] No README.md: No README.md in skill folder
 
 ### YAML Frontmatter Check
 - [PASS] Valid YAML: Proper --- delimiters
@@ -451,7 +447,6 @@ Skill follows all standard specifications. No issues found.
 ### 结构检查 (Structure Check)
 - [PASS - 已重命名] 文件夹命名: 已从 "My_Skill" 重命名为 "my-skill"
 - [PASS] SKILL.md 存在: 文件已找到
-- [PASS] 无 README.md: skill 文件夹内无 README.md
 
 ### YAML Frontmatter 检查
 - [PASS] 有效 YAML: frontmatter 格式正确
@@ -505,7 +500,6 @@ Skill follows all standard specifications. No issues found.
 ### 结构检查 (Structure Check)
 - [PASS - 已重命名] 文件夹命名: 已从 "My_Awesome_Skill" 重命名为 "super-skill"（用户自定义）
 - [PASS] SKILL.md 存在: 文件已找到
-- [PASS] 无 README.md: skill 文件夹内无 README.md
 
 ...
 ```
@@ -540,7 +534,6 @@ Skill follows all standard specifications. No issues found.
 ### 结构检查 (Structure Check)
 - [PASS - 用户选择] 文件夹命名: 用户选择保持原名称 "MyLegacySkill"（不符合 kebab-case 规范）
 - [PASS] SKILL.md 存在: 文件已找到
-- [PASS] 无 README.md: skill 文件夹内无 README.md
 
 ### 注意事项
 文件夹名称 "MyLegacySkill" 不符合 kebab-case 规范，但用户选择保持原名称。
@@ -618,7 +611,7 @@ my-skill/
 
 **用户：** "中文"
 
-**响应：**（如果发现其他问题，如 README.md、YAML 等）
+**响应：**（如果发现其他问题，如 YAML、语言等）
 
 ```markdown
 ## Skill 验证报告: my-skill
@@ -626,7 +619,7 @@ my-skill/
 ### 结构检查 (Structure Check)
 - [PASS] 文件夹命名: 使用 kebab-case "my-skill"
 - [PASS] SKILL.md 存在: 文件已找到
-- [FAIL] 无 README.md: skill 文件夹内发现 README.md
+- [FAIL] 文件分类: 根目录存在未分类文件 (validate.ps1, usage.md)
 
 ### YAML Frontmatter 检查
 - [PASS] 有效 YAML: frontmatter 格式正确
@@ -644,7 +637,7 @@ my-skill/
 - 合规率: 50%
 
 ### 建议 (Recommendations)
-1. 将 README.md 从 skill 文件夹移至仓库根目录
+1. 将 validate.ps1 移至 scripts/ 目录，usage.md 移至 references/ 目录
 2. 更新 YAML 中的 name 为 "my-skill"（与文件夹名匹配）
 3. 改进 description: 添加功能描述 + 触发条件
    示例: "验证数据文件。当用户上传 CSV 或 JSON 文件需要验证时使用。"
@@ -683,7 +676,7 @@ my-skill/
 ...（文件移动记录）
 
 ### README 生成 (README Generation)
-- [PASS] README 生成: 已创建 references/README.md
+- [PASS] README 生成: 已创建 README.md（根目录）
 
 #### 生成的 README 内容预览
 
@@ -700,10 +693,10 @@ my-skill/
 
 my-skill/
 ├── SKILL.md          # 核心指令文件
+├── README.md         # 本文档
 ├── scripts/
 │   └── validate.py   # 验证脚本
-└── references/
-    └── README.md     # 本文档
+└── references/       # 参考文档（如有）
 
 ## 使用方法
 
@@ -713,7 +706,7 @@ my-skill/
 
 ## 相关链接
 
-- [SKILL.md](../SKILL.md) - 核心指令文件
+- [SKILL.md](./SKILL.md) - 核心指令文件
 
 ## 元信息
 
@@ -735,7 +728,7 @@ my-skill/
 **Agent：** 检测到现有 README 与 SKILL.md 不一致：
 
 ```
-检测到 references/README.md 内容与 SKILL.md 不一致：
+检测到 README.md 内容与 SKILL.md 不一致：
 - 版本: "1.0.0" → "1.1.0"
 - 描述: "验证数据文件" → "验证数据文件并生成报告"
 
@@ -753,7 +746,7 @@ my-skill/
 
 ```markdown
 ### README 生成 (README Generation)
-- [PASS] README 更新: 已更新 references/README.md（保留自定义内容）
+- [PASS] README 更新: 已更新 README.md（保留自定义内容）
 
 #### 更新的字段
 - 版本: 1.0.0 → 1.1.0
